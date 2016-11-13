@@ -1,13 +1,5 @@
-title: Researcher
-url: "http://jorge.vican.me"
+title: Jorge Vicente Cantero
 baseurl: ""
-
-markdown: kramdown
-
-tracking_id: #
-
-sass:
-    style: compressed
-    sass_dir: _sass
-
-exclude: [vendor]
+theme: minima
+gems:
+    - jekyll-toc
