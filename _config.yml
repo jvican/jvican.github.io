@@ -1,5 +1,0 @@
-title: Jorge Vicente Cantero
-baseurl: ""
-theme: minima
-gems:
-    - jekyll-toc

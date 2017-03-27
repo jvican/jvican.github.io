@@ -1,0 +1,47 @@
+title = "jvican"
+baseurl = "https://jorge.vican.me/"
+languageCode = "en-us"
+theme = "hugo-cactus-theme"
+disqusShortname = ""
+
+[params]
+	name = "Jorge Vicente Cantero"
+	description = ""
+	bio = "I hack on Scala."
+	twitter = "jvican"
+	enableRSS = true
+
+	# Integrate Javascript files or stylesheets by adding the url to the external assets or by
+	# linking local files with their path relative to the static folder, e.g. "css/styles.css"
+	customCSS = []
+	customJS  = []
+
+	# Navigation links
+	home = ""
+	about = ""
+	subscribe = ""
+
+	# Pagination links
+	olderPosts = ""
+	newerPosts = ""
+	readMore = ""
+	copyright = ""
+
+	# Sharing options and author information in posts
+	aboutAuthor = "I hack on Scala."
+	tweet = ""
+	share = ""
+
+	# 404 page
+	title404 = "Page does not exist."
+	subtitle404 = "Get outta here."
+
+	# Choose a font for the social icons in the footer. Either "mono-social" or "font-awesome"
+	iconFont = "mono-social"
+    # The social icons can be styled differently if you use mono as font - circle, rounded, or empty
+    socialIconStyle = "circle"
+
+# Add additional social link entries underneath
+[social]
+    twitter  = "https://www.twitter.com/jvican"
+    github   = "https://www.github.com/jvican"
