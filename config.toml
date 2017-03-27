@@ -1,6 +1,6 @@
 title = "jvican"
 baseurl = "https://jorge.vican.me/"
-publishDir = "docs"
+publishDir = "."
 languageCode = "en-us"
 theme = "hugo-cactus-theme"
 disqusShortname = ""
