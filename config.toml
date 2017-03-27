@@ -1,5 +1,5 @@
 title = "jvican"
-baseurl = "https://jvican.github.io/"
+baseURL = "https://jvican.github.io/"
 publishDir = "."
 languageCode = "en-us"
 theme = "hugo-cactus-theme"
