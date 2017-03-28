@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>jvican</title>
-    <link>https://jvican.github.io/index.xml</link>
-    <description>Recent content on jvican</description>
+    <title>Abouts on jvican</title>
+    <link>https://jvican.github.io/about/index.xml</link>
+    <description>Recent content in Abouts on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <lastBuildDate>Tue, 28 Mar 2017 19:28:49 +0200</lastBuildDate>
-    <atom:link href="https://jvican.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://jvican.github.io/about/index.xml" rel="self" type="application/rss+xml" />
     
     <item>
       <title>About</title>
@@ -29,20 +29,6 @@
 &lt;li&gt;&lt;a href=&#34;https://github.com/scalacenter&#34;&gt;Scala Center projects&lt;/a&gt;, like the Scala Platform and compiler plugins.&lt;/li&gt;
 &lt;li&gt;&lt;a href=&#34;https://github.com/scala/scala&#34;&gt;Scalac&lt;/a&gt;, the Scala compiler.&lt;/li&gt;
 &lt;/ol&gt;
-</description>
-    </item>
-    
-    <item>
-      <title>Informal introduction</title>
-      <link>https://jvican.github.io/post/introduction/</link>
-      <pubDate>Mon, 27 Mar 2017 23:29:12 +0200</pubDate>
-      
-      <guid>https://jvican.github.io/post/introduction/</guid>
-      <description>&lt;p&gt;Hello, I am Jorge.&lt;/p&gt;
-
-&lt;p&gt;The idea is simple: your code is compiled many times (e.g. during CI builds) and results are usually trashed. Instead, it&amp;rsquo;s better to distribute classfiles (together with the cached compilation metadata) and don&amp;rsquo;t repeat this work again and again.&lt;/p&gt;
-
-&lt;p&gt;Using caches will not make your local workspace read-only. Once a cache is imported, it will work exactly as locally compiled one (all following compilations will be normal, incremental ones).&lt;/p&gt;
 </description>
     </item>
     

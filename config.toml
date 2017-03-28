@@ -20,7 +20,7 @@ disqusShortname = ""
 
 	# Navigation links
 	home = ""
-	about = ""
+	about = "About me"
 	subscribe = ""
 
 	# Pagination links
