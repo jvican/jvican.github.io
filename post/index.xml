@@ -6,8 +6,169 @@
     <description>Recent content in Posts on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 27 Mar 2017 23:29:12 +0200</lastBuildDate>
+    <lastBuildDate>Wed, 29 Mar 2017 19:05:17 +0200</lastBuildDate>
     <atom:link href="https://jvican.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>The semantics of value in sbt</title>
+      <link>https://jvican.github.io/post/sbt-value-macro/</link>
+      <pubDate>Wed, 29 Mar 2017 19:05:17 +0200</pubDate>
+      
+      <guid>https://jvican.github.io/post/sbt-value-macro/</guid>
+      <description>
+
+&lt;p&gt;The sbt &lt;code&gt;value&lt;/code&gt; macro is one of the most misleading features of sbt. In the
+surface, it&amp;rsquo;s a great invention. But once you realize how it works it can bite
+you more often than expected.&lt;/p&gt;
+
+&lt;p&gt;Sbt users are usually not familiar with the semantics of &lt;code&gt;value&lt;/code&gt; even though
+they are nicely explained &lt;a href=&#34;http://www.scala-sbt.org/0.13/docs/Task-Graph.html&#34;&gt;in the official
+documentation&lt;/a&gt;.  What the
+documentation skips, though, is why it is the way it is and what we can do to we
+face its limitations. Below I dive into these aspects, I illustrate why you
+should be weary of its use and give you some tips to avoid surprises.&lt;/p&gt;
+
+&lt;h2 id=&#34;what-does-value-do&#34;&gt;What does &lt;code&gt;value&lt;/code&gt; do?&lt;/h2&gt;
+
+&lt;p&gt;The &lt;code&gt;value&lt;/code&gt; macro is the main component of the sbt DSL. It allows you to get the
+value of any task and setting of your build. It provides to users:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;A way to abstract over the internal sbt API.&lt;/li&gt;
+&lt;li&gt;An easy-to-use construct for a common operation.
+
+&lt;br /&gt;
+&lt;br /&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;For example, let&amp;rsquo;s define a task in our &lt;code&gt;build.sbt&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;lazy val myCompileTask = taskKey[Unit](&amp;quot;Compile.&amp;quot;)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And let&amp;rsquo;s &lt;em&gt;implement&lt;/em&gt; it:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;myCompileTask := {
+  compile.value
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;As you see, &lt;code&gt;myCompileTask&lt;/code&gt; is an alias for &lt;code&gt;compile&lt;/code&gt;. The interesting bit of
+this code is how &lt;code&gt;compile.value&lt;/code&gt; is expanded by the macro:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;myCompileTask := {
+  compile.map { compilationResult =&amp;gt;
+    // Nothing here, we do nothing with the result
+    ()
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;At a first glance, the &lt;code&gt;value&lt;/code&gt; macro takes care of:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Getting all the identifiers wrapped by &lt;code&gt;value&lt;/code&gt;s in a block and
+registering them as dependencies of &lt;code&gt;myCompileTask&lt;/code&gt;.&lt;/li&gt;
+&lt;li&gt;Mapping this dependency to the internal sbt API, which is monadic.
+&lt;br /&gt;
+&lt;br /&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;One may expect this transformation to be powerful. So you may be bold and
+implement a fancier compile task that is only run by the CI.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;lazy val runOnCI = taskKey[Unit](&amp;quot;Compile on the CI&amp;quot;)
+runOnCI := {
+  val logger = streams.value.log
+  val ci = sys.env.get(&amp;quot;DRONE&amp;quot;)
+  if (ci.map(_.toBoolean).isDefined) {
+    logger.info(&amp;quot;Running compile on CI.&amp;quot;)
+    compile.value
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;However, when you run &lt;code&gt;runOnCI&lt;/code&gt; locally, you will be surprised to see that
+&lt;code&gt;compile&lt;/code&gt; is being called even if you guarded its execution with an if
+expression and its condition predicate is not met.&lt;/p&gt;
+
+&lt;p&gt;What&amp;rsquo;s happened? We&amp;rsquo;ve forgotten we&amp;rsquo;re writing sbt, not Scala code.&lt;/p&gt;
+
+&lt;h2 id=&#34;a-closer-look-to-the-semantics&#34;&gt;A closer look to the semantics&lt;/h2&gt;
+
+&lt;p&gt;Some may argue that this is a feature of sbt. If you think about sbt being a
+graph, it makes sense that dependent nodes are visited before the node (task)
+you have defined.&lt;/p&gt;
+
+&lt;p&gt;However, I don&amp;rsquo;t think it&amp;rsquo;s a feature. I think that the current semantics are
+just a leak of the underlying implementation.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code&gt;value&lt;/code&gt; macro has fundamental limitations to imitate Scala semantics because
+providing generic code transformations that respect them is difficult and not
+trivial. What &lt;code&gt;value&lt;/code&gt; essentially does is to lift sbt code into Scala code, but
+it does not promise a one-to-one mapping between the two.&lt;/p&gt;
+
+&lt;p&gt;Let&amp;rsquo;s have a closer look at the expanded code. The previous task implementation
+is equivalent to:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;runOnCI := {
+  (streams, compile).map { (st, compilationResult) =&amp;gt;
+    val logger = st.log
+    val ci = sys.env.get(&amp;quot;DRONE&amp;quot;)
+    if (ci.map(_.toBoolean).isDefined) {
+      logger.info(&amp;quot;Running compile on CI.&amp;quot;)
+      compilationResult
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;While what we actually want is:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;runOnCI := {
+  streams.map { st =&amp;gt;
+    val logger = st.log
+    val ci = sys.env.get(&amp;quot;DRONE&amp;quot;)
+    if (ci.map(_.toBoolean).isDefined) {
+      logger.info(&amp;quot;Running compile on CI.&amp;quot;)
+      compile.map { compilationResult =&amp;gt;
+        ()
+      }
+    }
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Why can&amp;rsquo;t sbt be smarter enough to expand the initial task into that code?&lt;/p&gt;
+
+&lt;p&gt;I can think of three reasons:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;The macro code to handle all the corner cases (if and while expressions,
+pattern matching, by-name parameters, lazy vals, closures, top-level
+expressions in classes, etc) grows larger and more complex.&lt;/li&gt;
+&lt;li&gt;Providing a correct implementation is hard and likely to have bugs.&lt;/li&gt;
+&lt;li&gt;Macros were a young project when sbt started to use them. Back in the day,
+the macro API and the infrastructure around it were not as &lt;em&gt;mature&lt;/em&gt; as they are
+now.
+&lt;br /&gt;
+&lt;br /&gt;&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;I cannot blame sbt maintainers by constraining the semantics of the sbt DSL.
+This is not an easy problem.  Shipping complex, &lt;em&gt;untested&lt;/em&gt; macro code into a
+production-ready build tool doesn&amp;rsquo;t seem a good idea.&lt;/p&gt;
+
+&lt;p&gt;However, I think the current implementation creates confusion for sbt users and
+makes learning sbt one of the hardest things when starting in Scala.&lt;/p&gt;
+
+&lt;p&gt;To work around the described problem, sbt started to build in artificial
+constructs that allow users to emulate Scala semantics manually. For example,
+dynamic tasks are supposed to be the right way to work around this problem in
+idiomatic sbt. This was all done in the spirit of simplifying sbt, but I believe
+it ended up backfiring the original purpose of the sbt DSL.&lt;/p&gt;
+</description>
+    </item>
     
     <item>
       <title>Informal introduction</title>
