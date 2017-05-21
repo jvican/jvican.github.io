@@ -6,167 +6,176 @@
     <description>Recent content on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Wed, 29 Mar 2017 19:05:17 +0200</lastBuildDate>
+    <lastBuildDate>Fri, 19 May 2017 20:59:57 +0200</lastBuildDate>
     <atom:link href="https://jvican.github.io/index.xml" rel="self" type="application/rss+xml" />
     
     <item>
-      <title>The semantics of value in sbt</title>
-      <link>https://jvican.github.io/post/sbt-value-macro/</link>
-      <pubDate>Wed, 29 Mar 2017 19:05:17 +0200</pubDate>
+      <title>Hide your sbt tasks and settings away</title>
+      <link>https://jvican.github.io/post/local-tasks-sbt-plugin/</link>
+      <pubDate>Fri, 19 May 2017 20:59:57 +0200</pubDate>
       
-      <guid>https://jvican.github.io/post/sbt-value-macro/</guid>
+      <guid>https://jvican.github.io/post/local-tasks-sbt-plugin/</guid>
       <description>
 
-&lt;p&gt;The sbt &lt;code&gt;value&lt;/code&gt; macro is one of the most misleading features of sbt. In the
-surface, it&amp;rsquo;s a great invention. But once you realize how it works it can bite
-you more often than expected.&lt;/p&gt;
+&lt;p&gt;The sbt model encourages plugin authors to write their plugins with a fine level
+of granularity. This level of granularity often forces users to create settings
+for internal, cached values and tasks for private functionality. As a result,
+these settings and tasks end up exposed in the public API, visible for sbt users
+and other plugin authors.&lt;/p&gt;
 
-&lt;p&gt;Sbt users are usually not familiar with the semantics of &lt;code&gt;value&lt;/code&gt; even though
-they are nicely explained &lt;a href=&#34;http://www.scala-sbt.org/0.13/docs/Task-Graph.html&#34;&gt;in the official
-documentation&lt;/a&gt;.  What the
-documentation skips, though, is why it is the way it is and what we can do to we
-face its limitations. Below I dive into these aspects, I illustrate why you
-should be weary of its use and give you some tips to avoid surprises.&lt;/p&gt;
+&lt;p&gt;This post explains how to use local tasks and settings to hide the
+implementation details of your plugins and builds. This helps you evolve them
+much faster without the concern of breaking other people&amp;rsquo;s builds.&lt;/p&gt;
 
-&lt;h2 id=&#34;what-does-value-do&#34;&gt;What does &lt;code&gt;value&lt;/code&gt; do?&lt;/h2&gt;
+&lt;h2 id=&#34;decide-the-scope-of-your-settings-and-task-first&#34;&gt;Decide the scope of your settings and task first&lt;/h2&gt;
 
-&lt;p&gt;The &lt;code&gt;value&lt;/code&gt; macro is the main component of the sbt DSL. It allows you to get the
-value of any task and setting of your build. It provides to users:&lt;/p&gt;
+&lt;p&gt;I find good practice to define the settings on different places depending on
+their visibility and scope. My rule of thumb is to define internal settings and
+tasks in a scope inaccessible from &lt;code&gt;autoImport&lt;/code&gt;, either private outside of my
+plugin package or protected.&lt;/p&gt;
+
+&lt;p&gt;This is how I usually define a &amp;ldquo;private&amp;rdquo; setting in plugin &lt;code&gt;foo&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;private[foo] object InternalSettings {
+  private[foo] val commitId = settingKey[String](
+    &amp;quot;The current commit id, only for internal use.&amp;quot;)
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Then, I import &lt;code&gt;InternalSettings&lt;/code&gt; to whichever place defines its implementation
+and add it to my project or build settings. Note that to make sure this setting
+can never be referred outside of &lt;code&gt;foo&lt;/code&gt;, I have defined both &lt;code&gt;commitId&lt;/code&gt; and its
+owner as &lt;code&gt;private[foo]&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Anyone familiar with access modifiers and Scala&amp;rsquo;s scoping rules will be sure
+that &lt;code&gt;commitId&lt;/code&gt; is inaccessible from sbt plugins defined in another namespace
+until they&amp;hellip;&lt;/p&gt;
+
+&lt;h2 id=&#34;meet-direct-setting-and-task-references&#34;&gt;Meet direct setting and task references&lt;/h2&gt;
+
+&lt;p&gt;For sbt, a setting or a task is just an id and its type signature. If two
+settings have the same, then they &lt;em&gt;are&lt;/em&gt; the same setting! You can use this trick
+to prove our previous hypothesis wrong:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;val hijackedCommitId = SettingKey[String](&amp;quot;commitId&amp;quot;)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Note two things:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;We use &lt;code&gt;SettingKey&lt;/code&gt; instead of &lt;code&gt;settingKey&lt;/code&gt; because it allow us to pass in
+the name of the setting we require (likewise for &lt;code&gt;TaskKey&lt;/code&gt; and &lt;code&gt;taskKey&lt;/code&gt;).&lt;/li&gt;
+&lt;li&gt;The parameter for &lt;code&gt;SettingKey&lt;/code&gt; is the name of the identifier that we used to
+define our private key: &lt;code&gt;commitId&lt;/code&gt; &lt;a rel=&#34;footnote&#34; name=&#34;#f1&#34;&gt;1&lt;/a&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;We thought referring to &lt;code&gt;commitId&lt;/code&gt; was impossible because &lt;code&gt;commitId&lt;/code&gt; was
+qualified as &lt;code&gt;private&lt;/code&gt;.  However, the above declaration proves us wrong. What
+did we miss? Let&amp;rsquo;s step back and see the whole picture.&lt;/p&gt;
+
+&lt;h3 id=&#34;what-did-we-miss&#34;&gt;What did we miss?&lt;/h3&gt;
+
+&lt;p&gt;Sbt is a build tool with three main constructs. Two of these constructs,
+settings and tasks, are known at compile-time but their relationships and scopes
+are not.&lt;/p&gt;
+
+&lt;p&gt;The build tool, however, needs to understand and process them so that users can
+access and manipulate this information (via &lt;code&gt;show&lt;/code&gt;, &lt;code&gt;inspect&lt;/code&gt;, &lt;code&gt;set&lt;/code&gt;, et
+cetera). If the knowledge at compile-time is not enough, where does sbt look for
+the whole picture?&lt;/p&gt;
+
+&lt;p&gt;The answer is &lt;strong&gt;runtime&lt;/strong&gt;!&lt;/p&gt;
+
+&lt;p&gt;Sbt lifts Scala code into its own runtime structure. This runtime structure can
+be traversed and manipulated and holds all the information about a given build.&lt;/p&gt;
+
+&lt;p&gt;In fact, this runtime structure is somewhat equivalent to Java reflection and
+addresses the same limitation that JVMs have: they don&amp;rsquo;t know how programs will
+be linked, so they delay linking and bytecode compilation to runtime. The same
+holds for sbt &amp;ndash; missing pieces like global and local plugins are only known
+when users run &lt;code&gt;sbt&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;an-unexpected-leak-to-the-users&#34;&gt;An unexpected leak to the users&lt;/h2&gt;
+
+&lt;p&gt;So, you may argue that if someone is so desperate as to make runtime references
+to your private settings, we should let them be! After all, it&amp;rsquo;s clear that they
+rely on implementation details that may not exist in a future version of your
+plugin, right?&lt;/p&gt;
+
+&lt;p&gt;That&amp;rsquo;s at least my stance and holds also for Java reflection. You usually don&amp;rsquo;t
+care if programs are accessing your private methods using reflection. Both the
+API designer and the user know that&amp;rsquo;s unsupported &amp;mdash; otherwise, we couldn&amp;rsquo;t
+evolve any API.&lt;/p&gt;
+
+&lt;p&gt;But there&amp;rsquo;s a bigger disadvantage with our previous definition of &lt;code&gt;commitId&lt;/code&gt;.
+What happens when your plugin users type &lt;code&gt;&#39;com&#39; + TAB&lt;/code&gt; and expect the sbt
+autocomplete to do its job?&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;&amp;gt; com
+commands                  commitId                  compile                   compile:                  compileAnalysisFilename   compileIncremental        
+compilerCache             compilerReporter          compilers                 completions 
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;They will see your private key in their console.&lt;/p&gt;
+
+&lt;p&gt;This is an important leak of your private API &amp;ndash; those tasks and settings are
+cluttering users&amp;rsquo; screens and giving them the impression that their use is
+encouraged! The more you modularize your plugin, the more your users will have
+access to these implementation details.  That&amp;rsquo;s not a good incentive for solid
+plugin development. So that&amp;rsquo;s why I want you to&amp;hellip;&lt;/p&gt;
+
+&lt;h2 id=&#34;meet-local-settings-and-tasks&#34;&gt;Meet local settings and tasks&lt;/h2&gt;
+
+&lt;p&gt;Settings and tasks can be &amp;ldquo;local&amp;rdquo;. Local settings and tasks have two properties:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;They are ignored by sbt autocompletion.&lt;/li&gt;
+&lt;li&gt;They have no name (their name is freshly generated).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;As a result, users cannot &lt;code&gt;show&lt;/code&gt; or &lt;code&gt;inspect&lt;/code&gt; them and plugin authors can only
+use them via compile-time references (meaning access modifiers are the absolute
+truth to control how these are accessed). This notion of local fixes our
+previous problems at one stroke.&lt;/p&gt;
+
+&lt;p&gt;I recently discovered local settings and tasks while answering
+&lt;a href=&#34;https://github.com/imarios&#34;&gt;@imarios&lt;/a&gt;&amp;rsquo;s &lt;a href=&#34;https://github.com/sbt/sbt/issues/3192&#34;&gt;request for allowing keys to be
+private at the plugin level&lt;/a&gt;. Though
+they were initially created to address another problem, their properties are
+ideal to address the limitations at hand.&lt;/p&gt;
+
+&lt;p&gt;Let&amp;rsquo;s rewrite &lt;code&gt;commitId&lt;/code&gt; to be a local setting:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;private[foo] object InternalSettings {
+  private[foo] val commitId = SettingKey.local[String]
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;To create local tasks, invoke &lt;code&gt;TaskKey.local[String]&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;It&amp;rsquo;s worth pointing out that local settings and tasks have no descriptions, the
+only thing they need is a manifest (a type signature, &lt;code&gt;String&lt;/code&gt; in our case).&lt;/p&gt;
+
+&lt;h2 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h2&gt;
+
+&lt;p&gt;All in all, local settings and tasks help you build robust plugins that hide
+implementation details from other sbt plugins and users&lt;a rel=&#39;footnote&#39; href=&#39;#f2&#39;&gt;2&lt;/a&gt;.
+This keeps your plugins hygienic in several ways:&lt;/p&gt;
 
 &lt;ol&gt;
-&lt;li&gt;A way to abstract over the internal sbt API.&lt;/li&gt;
-&lt;li&gt;An easy-to-use construct for a common operation.
-
-&lt;br /&gt;
-&lt;br /&gt;&lt;/li&gt;
+&lt;li&gt;Sbt users will not see those implementation details while autocompleting or
+inspecting the settings.&lt;/li&gt;
+&lt;li&gt;Plugin authors will not be able to refer to those settings and tasks.&lt;/li&gt;
 &lt;/ol&gt;
 
-&lt;p&gt;For example, let&amp;rsquo;s define a task in our &lt;code&gt;build.sbt&lt;/code&gt;:&lt;/p&gt;
+&lt;hr&gt;
 
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;lazy val myCompileTask = taskKey[Unit](&amp;quot;Compile.&amp;quot;)
-&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;a name=&#39;f1&#39;&gt;1.&lt;/a&gt; Remember that &lt;code&gt;settingKey&lt;/code&gt; is a macro that gets the name of
+the setting from the left hand side term that defines it.&lt;/p&gt;
 
-&lt;p&gt;And let&amp;rsquo;s &lt;em&gt;implement&lt;/em&gt; it:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;myCompileTask := {
-  compile.value
-}
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;As you see, &lt;code&gt;myCompileTask&lt;/code&gt; is an alias for &lt;code&gt;compile&lt;/code&gt;. The interesting bit of
-this code is how &lt;code&gt;compile.value&lt;/code&gt; is expanded by the macro:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;myCompileTask := {
-  compile.map { compilationResult =&amp;gt;
-    // Nothing here, we do nothing with the result
-    ()
-  }
-}
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;At a first glance, the &lt;code&gt;value&lt;/code&gt; macro takes care of:&lt;/p&gt;
-
-&lt;ol&gt;
-&lt;li&gt;Getting all the identifiers wrapped by &lt;code&gt;value&lt;/code&gt;s in a block and
-registering them as dependencies of &lt;code&gt;myCompileTask&lt;/code&gt;.&lt;/li&gt;
-&lt;li&gt;Mapping this dependency to the internal sbt API, which is monadic.
-&lt;br /&gt;
-&lt;br /&gt;&lt;/li&gt;
-&lt;/ol&gt;
-
-&lt;p&gt;One may expect this transformation to be powerful. So you may be bold and
-implement a fancier compile task that is only run by the CI.&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;lazy val runOnCI = taskKey[Unit](&amp;quot;Compile on the CI&amp;quot;)
-runOnCI := {
-  val logger = streams.value.log
-  val ci = sys.env.get(&amp;quot;DRONE&amp;quot;)
-  if (ci.map(_.toBoolean).isDefined) {
-    logger.info(&amp;quot;Running compile on CI.&amp;quot;)
-    compile.value
-  }
-}
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;However, when you run &lt;code&gt;runOnCI&lt;/code&gt; locally, you will be surprised to see that
-&lt;code&gt;compile&lt;/code&gt; is being called even if you guarded its execution with an if
-expression and its condition predicate is not met.&lt;/p&gt;
-
-&lt;p&gt;What&amp;rsquo;s happened? We&amp;rsquo;ve forgotten we&amp;rsquo;re writing sbt, not Scala code.&lt;/p&gt;
-
-&lt;h2 id=&#34;a-closer-look-to-the-semantics&#34;&gt;A closer look to the semantics&lt;/h2&gt;
-
-&lt;p&gt;Some may argue that this is a feature of sbt. If you think about sbt being a
-graph, it makes sense that dependent nodes are visited before the node (task)
-you have defined.&lt;/p&gt;
-
-&lt;p&gt;However, I don&amp;rsquo;t think it&amp;rsquo;s a feature. I think that the current semantics are
-just a leak of the underlying implementation.&lt;/p&gt;
-
-&lt;p&gt;The &lt;code&gt;value&lt;/code&gt; macro has fundamental limitations to imitate Scala semantics because
-providing generic code transformations that respect them is difficult and not
-trivial. What &lt;code&gt;value&lt;/code&gt; essentially does is to lift sbt code into Scala code, but
-it does not promise a one-to-one mapping between the two.&lt;/p&gt;
-
-&lt;p&gt;Let&amp;rsquo;s have a closer look at the expanded code. The previous task implementation
-is equivalent to:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;runOnCI := {
-  (streams, compile).map { (st, compilationResult) =&amp;gt;
-    val logger = st.log
-    val ci = sys.env.get(&amp;quot;DRONE&amp;quot;)
-    if (ci.map(_.toBoolean).isDefined) {
-      logger.info(&amp;quot;Running compile on CI.&amp;quot;)
-      compilationResult
-    }
-  }
-}
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;While what we actually want is:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;runOnCI := {
-  streams.map { st =&amp;gt;
-    val logger = st.log
-    val ci = sys.env.get(&amp;quot;DRONE&amp;quot;)
-    if (ci.map(_.toBoolean).isDefined) {
-      logger.info(&amp;quot;Running compile on CI.&amp;quot;)
-      compile.map { compilationResult =&amp;gt;
-        ()
-      }
-    }
-  }
-}
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;Why can&amp;rsquo;t sbt be smarter enough to expand the initial task into that code?&lt;/p&gt;
-
-&lt;p&gt;I can think of three reasons:&lt;/p&gt;
-
-&lt;ol&gt;
-&lt;li&gt;The macro code to handle all the corner cases (if and while expressions,
-pattern matching, by-name parameters, lazy vals, closures, top-level
-expressions in classes, etc) grows larger and more complex.&lt;/li&gt;
-&lt;li&gt;Providing a correct implementation is hard and likely to have bugs.&lt;/li&gt;
-&lt;li&gt;Macros were a young project when sbt started to use them. Back in the day,
-the macro API and the infrastructure around it were not as &lt;em&gt;mature&lt;/em&gt; as they are
-now.
-&lt;br /&gt;
-&lt;br /&gt;&lt;/li&gt;
-&lt;/ol&gt;
-
-&lt;p&gt;I cannot blame sbt maintainers by constraining the semantics of the sbt DSL.
-This is not an easy problem.  Shipping complex, &lt;em&gt;untested&lt;/em&gt; macro code into a
-production-ready build tool doesn&amp;rsquo;t seem a good idea.&lt;/p&gt;
-
-&lt;p&gt;However, I think the current implementation creates confusion for sbt users and
-makes learning sbt one of the hardest things when starting in Scala.&lt;/p&gt;
-
-&lt;p&gt;To work around the described problem, sbt started to build in artificial
-constructs that allow users to emulate Scala semantics manually. For example,
-dynamic tasks are supposed to be the right way to work around this problem in
-idiomatic sbt. This was all done in the spirit of simplifying sbt, but I believe
-it ended up backfiring the original purpose of the sbt DSL.&lt;/p&gt;
+&lt;p&gt;&lt;a name=&#39;f2&#39;&gt;2.&lt;/a&gt; Depending on your code structure and access modifiers,
+things could still be accessible via normal Java reflection. However, that
+should not keep you up at night.&lt;/p&gt;
 </description>
     </item>
     
@@ -190,6 +199,16 @@ it ended up backfiring the original purpose of the sbt DSL.&lt;/p&gt;
 &lt;li&gt;&lt;a href=&#34;https://github.com/scalacenter&#34;&gt;Scala Center projects&lt;/a&gt;, like the Scala Platform and compiler plugins.&lt;/li&gt;
 &lt;li&gt;&lt;a href=&#34;https://github.com/scala/scala&#34;&gt;Scalac&lt;/a&gt;, the Scala compiler.&lt;/li&gt;
 &lt;/ol&gt;
+
+&lt;hr&gt;
+
+&lt;p&gt;Contact me via:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;&lt;a href=&#34;https://github.com/jvican&#34;&gt;GitHub&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://gitter.im/jvican&#34;&gt;Gitter&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;&lt;a href=&#34;https://twitter.com/jvican&#34;&gt;Twitter&lt;/a&gt;.&lt;/li&gt;
+&lt;/ol&gt;
 </description>
     </item>
     
@@ -199,11 +218,17 @@ it ended up backfiring the original purpose of the sbt DSL.&lt;/p&gt;
       <pubDate>Mon, 27 Mar 2017 23:29:12 +0200</pubDate>
       
       <guid>https://jvican.github.io/post/introduction/</guid>
-      <description>&lt;p&gt;Hello, I am Jorge.&lt;/p&gt;
+      <description>&lt;p&gt;Hello, I am Jorge. I hack on Scala dev tools at the Scala Center.&lt;/p&gt;
 
-&lt;p&gt;The idea is simple: your code is compiled many times (e.g. during CI builds) and results are usually trashed. Instead, it&amp;rsquo;s better to distribute classfiles (together with the cached compilation metadata) and don&amp;rsquo;t repeat this work again and again.&lt;/p&gt;
+&lt;p&gt;I have started this blog post to explore passions, improve my writing skills and
+talk about stuff I find interesting.&lt;/p&gt;
 
-&lt;p&gt;Using caches will not make your local workspace read-only. Once a cache is imported, it will work exactly as locally compiled one (all following compilations will be normal, incremental ones).&lt;/p&gt;
+&lt;p&gt;Most of the topics will be related to Computer Science and software engineering.
+Others may be mathematics, behavioral economics, literature or philosophy &amp;ndash; who
+knows.&lt;/p&gt;
+
+&lt;p&gt;I hope this may be useful to you. If you want to reach out to me, check the
+footer of this website or head yourself to the &lt;a href=&#34;https://jvican.github.io/about/&#34;&gt;About&lt;/a&gt; page.&lt;/p&gt;
 </description>
     </item>
     

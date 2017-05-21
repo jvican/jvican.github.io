@@ -665,3 +665,12 @@ code {
 }
 
 ol { line-height: 1.7em; }
+
+
+a[rel="footnote"] {
+    top: -.5em;
+    position: relative;
+    font-size: 75%;
+    line-height: 0;
+    vertical-align: baseline;
+}

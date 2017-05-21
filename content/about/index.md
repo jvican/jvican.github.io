@@ -16,3 +16,11 @@ I contribute to the following projects:
 2. [sbt](https://github.com/sbt/sbt), the Scala build tool.
 3. [Scala Center projects](https://github.com/scalacenter), like the Scala Platform and compiler plugins.
 3. [Scalac](https://github.com/scala/scala), the Scala compiler.
+
+<hr>
+
+Contact me via:
+
+1. [GitHub](https://github.com/jvican).
+2. [Gitter](https://gitter.im/jvican).
+3. [Twitter](https://twitter.com/jvican).
