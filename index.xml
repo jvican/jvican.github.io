@@ -44,8 +44,8 @@ plugin package or protected.&lt;/p&gt;
 
 &lt;p&gt;Then, I import &lt;code&gt;InternalSettings&lt;/code&gt; to whichever place defines its implementation
 and add it to my project or build settings. Note that to make sure this setting
-can never be referred outside of &lt;code&gt;foo&lt;/code&gt;, I have defined both &lt;code&gt;commitId&lt;/code&gt; and its
-owner as &lt;code&gt;private[foo]&lt;/code&gt;.&lt;/p&gt;
+can never be referred outside of &lt;code&gt;foo&lt;/code&gt;&lt;a rel=&#39;footnote&#39; href=&#39;#f1&#39;&gt;1&lt;/a&gt;, I have
+defined both &lt;code&gt;commitId&lt;/code&gt; and its owner as &lt;code&gt;private[foo]&lt;/code&gt;.&lt;/p&gt;
 
 &lt;p&gt;Anyone familiar with access modifiers and Scala&amp;rsquo;s scoping rules will be sure
 that &lt;code&gt;commitId&lt;/code&gt; is inaccessible from sbt plugins defined in another namespace
@@ -66,7 +66,7 @@ to prove our previous hypothesis wrong:&lt;/p&gt;
 &lt;li&gt;We use &lt;code&gt;SettingKey&lt;/code&gt; instead of &lt;code&gt;settingKey&lt;/code&gt; because it allow us to pass in
 the name of the setting we require (likewise for &lt;code&gt;TaskKey&lt;/code&gt; and &lt;code&gt;taskKey&lt;/code&gt;).&lt;/li&gt;
 &lt;li&gt;The parameter for &lt;code&gt;SettingKey&lt;/code&gt; is the name of the identifier that we used to
-define our private key: &lt;code&gt;commitId&lt;/code&gt; &lt;a rel=&#34;footnote&#34; name=&#34;#f1&#34;&gt;1&lt;/a&gt;.&lt;/li&gt;
+define our private key: &lt;code&gt;commitId&lt;/code&gt; &lt;a rel=&#34;footnote&#34; name=&#34;#f2&#34;&gt;2&lt;/a&gt;.&lt;/li&gt;
 &lt;/ul&gt;
 
 &lt;p&gt;We thought referring to &lt;code&gt;commitId&lt;/code&gt; was impossible because &lt;code&gt;commitId&lt;/code&gt; was
@@ -159,7 +159,7 @@ only thing they need is a manifest (a type signature, &lt;code&gt;String&lt;/cod
 &lt;h2 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h2&gt;
 
 &lt;p&gt;All in all, local settings and tasks help you build robust plugins that hide
-implementation details from other sbt plugins and users&lt;a rel=&#39;footnote&#39; href=&#39;#f2&#39;&gt;2&lt;/a&gt;.
+implementation details from other sbt plugins and users&lt;a rel=&#39;footnote&#39; href=&#39;#f3&#39;&gt;3&lt;/a&gt;.
 This keeps your plugins hygienic in several ways:&lt;/p&gt;
 
 &lt;ol&gt;
@@ -170,10 +170,15 @@ inspecting the settings.&lt;/li&gt;
 
 &lt;hr&gt;
 
-&lt;p&gt;&lt;a name=&#39;f1&#39;&gt;1.&lt;/a&gt; Remember that &lt;code&gt;settingKey&lt;/code&gt; is a macro that gets the name of
+&lt;p&gt;&lt;a name=&#39;f1&#39;&gt;1.&lt;/a&gt; See &lt;a href=&#34;https://scastie.scala-lang.org/q8yukWZXQuSrJTGgLJu98g&#34;&gt;this Scastie
+link&lt;/a&gt; that shows how you
+could &lt;em&gt;theoretically&lt;/em&gt; cheat access modifiers if only &lt;code&gt;InternalSettings&lt;/code&gt; is
+&lt;code&gt;private[foo]&lt;/code&gt; and it&amp;rsquo;s assigned to another term.&lt;/p&gt;
+
+&lt;p&gt;&lt;a name=&#39;f2&#39;&gt;2.&lt;/a&gt; Remember that &lt;code&gt;settingKey&lt;/code&gt; is a macro that gets the name of
 the setting from the left hand side term that defines it.&lt;/p&gt;
 
-&lt;p&gt;&lt;a name=&#39;f2&#39;&gt;2.&lt;/a&gt; Depending on your code structure and access modifiers,
+&lt;p&gt;&lt;a name=&#39;f3&#39;&gt;3.&lt;/a&gt; Depending on your code structure and access modifiers,
 things could still be accessible via normal Java reflection. However, that
 should not keep you up at night.&lt;/p&gt;
 </description>

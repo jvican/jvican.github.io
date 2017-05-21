@@ -48,7 +48,7 @@
 
 
 <meta itemprop="dateModified" content="2017-05-19T20:59:57&#43;02:00" />
-<meta itemprop="wordCount" content="1008">
+<meta itemprop="wordCount" content="1033">
 
 
 
@@ -123,8 +123,8 @@ plugin package or protected.</p>
 
 <p>Then, I import <code>InternalSettings</code> to whichever place defines its implementation
 and add it to my project or build settings. Note that to make sure this setting
-can never be referred outside of <code>foo</code>, I have defined both <code>commitId</code> and its
-owner as <code>private[foo]</code>.</p>
+can never be referred outside of <code>foo</code><a rel='footnote' href='#f1'>1</a>, I have
+defined both <code>commitId</code> and its owner as <code>private[foo]</code>.</p>
 
 <p>Anyone familiar with access modifiers and Scala&rsquo;s scoping rules will be sure
 that <code>commitId</code> is inaccessible from sbt plugins defined in another namespace
@@ -145,7 +145,7 @@ to prove our previous hypothesis wrong:</p>
 <li>We use <code>SettingKey</code> instead of <code>settingKey</code> because it allow us to pass in
 the name of the setting we require (likewise for <code>TaskKey</code> and <code>taskKey</code>).</li>
 <li>The parameter for <code>SettingKey</code> is the name of the identifier that we used to
-define our private key: <code>commitId</code> <a rel="footnote" name="#f1">1</a>.</li>
+define our private key: <code>commitId</code> <a rel="footnote" name="#f2">2</a>.</li>
 </ul>
 
 <p>We thought referring to <code>commitId</code> was impossible because <code>commitId</code> was
@@ -238,7 +238,7 @@ only thing they need is a manifest (a type signature, <code>String</code> in our
 <h2 id="conclusion">Conclusion</h2>
 
 <p>All in all, local settings and tasks help you build robust plugins that hide
-implementation details from other sbt plugins and users<a rel='footnote' href='#f2'>2</a>.
+implementation details from other sbt plugins and users<a rel='footnote' href='#f3'>3</a>.
 This keeps your plugins hygienic in several ways:</p>
 
 <ol>
@@ -249,10 +249,15 @@ inspecting the settings.</li>
 
 <hr>
 
-<p><a name='f1'>1.</a> Remember that <code>settingKey</code> is a macro that gets the name of
+<p><a name='f1'>1.</a> See <a href="https://scastie.scala-lang.org/q8yukWZXQuSrJTGgLJu98g">this Scastie
+link</a> that shows how you
+could <em>theoretically</em> cheat access modifiers if only <code>InternalSettings</code> is
+<code>private[foo]</code> and it&rsquo;s assigned to another term.</p>
+
+<p><a name='f2'>2.</a> Remember that <code>settingKey</code> is a macro that gets the name of
 the setting from the left hand side term that defines it.</p>
 
-<p><a name='f2'>2.</a> Depending on your code structure and access modifiers,
+<p><a name='f3'>3.</a> Depending on your code structure and access modifiers,
 things could still be accessible via normal Java reflection. However, that
 should not keep you up at night.</p>
 
