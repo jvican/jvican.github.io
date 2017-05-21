@@ -33,8 +33,8 @@ private[foo] object InternalSettings {
 
 Then, I import `InternalSettings` to whichever place defines its implementation
 and add it to my project or build settings. Note that to make sure this setting
-can never be referred outside of `foo`, I have defined both `commitId` and its
-owner as `private[foo]`.
+can never be referred outside of `foo`<a rel='footnote' href='#f1'>1</a>, I have
+defined both `commitId` and its owner as `private[foo]`.
 
 Anyone familiar with access modifiers and Scala's scoping rules will be sure
 that `commitId` is inaccessible from sbt plugins defined in another namespace
@@ -55,7 +55,7 @@ Note two things:
 * We use `SettingKey` instead of `settingKey` because it allow us to pass in
     the name of the setting we require (likewise for `TaskKey` and `taskKey`).
 * The parameter for `SettingKey` is the name of the identifier that we used to
-    define our private key: `commitId` <a rel="footnote" name="#f1">1</a>.
+    define our private key: `commitId` <a rel="footnote" name="#f2">2</a>.
 
 We thought referring to `commitId` was impossible because `commitId` was
 qualified as `private`.  However, the above declaration proves us wrong. What
@@ -147,7 +147,7 @@ only thing they need is a manifest (a type signature, `String` in our case).
 ## Conclusion
 
 All in all, local settings and tasks help you build robust plugins that hide
-implementation details from other sbt plugins and users<a rel='footnote' href='#f2'>2</a>.
+implementation details from other sbt plugins and users<a rel='footnote' href='#f3'>3</a>.
 This keeps your plugins hygienic in several ways:
 
 1. Sbt users will not see those implementation details while autocompleting or
@@ -156,9 +156,14 @@ This keeps your plugins hygienic in several ways:
 
 <hr>
 
-<a name='f1'>1.</a> Remember that `settingKey` is a macro that gets the name of
+<a name='f1'>1.</a> See [this Scastie
+link](https://scastie.scala-lang.org/q8yukWZXQuSrJTGgLJu98g) that shows how you
+could *theoretically* cheat access modifiers if only `InternalSettings` is
+`private[foo]` and it's assigned to another term.
+
+<a name='f2'>2.</a> Remember that `settingKey` is a macro that gets the name of
 the setting from the left hand side term that defines it.
 
-<a name='f2'>2.</a> Depending on your code structure and access modifiers,
+<a name='f3'>3.</a> Depending on your code structure and access modifiers,
 things could still be accessible via normal Java reflection. However, that
 should not keep you up at night.
