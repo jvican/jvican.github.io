@@ -51,9 +51,10 @@ margin-bottom: 20px;
 html, body { height: 100%; }
 
 body {
-	font-size:16px/1;
+	font-size: 16px/1;
   font-family: "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-	color: #24292e;
+  font-weight: 400;
+	color: #333;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
 }
@@ -138,13 +139,13 @@ nav.main-nav a.cta {
 }
 
 #wrapper {
-  max-width: 600px;
+  max-width: 45em;
   margin: 0 auto;
   padding: 60px 40px 100px 40px;
 }
 
 #wrapper.home {
-	max-width: 600px;
+	max-width: 45em;
 	margin: 0 auto;
 	padding: 0px 40px 20px 40px;
 }
@@ -185,7 +186,10 @@ ul 	{ margin:0; padding:0; margin-bottom: 20px; }
 li	{ list-style-type:circle; list-style-position:inside; }
 
 /* Line Height */
-#post-body, p { line-height:1.7; }
+#post-body, p {
+  line-height:1.5;
+  font-size: 17px;
+}
 
 b, strong { font-weight: 500;
   color: #1E2025; }
@@ -222,27 +226,27 @@ em, i { font-style: italic; }
 
 .post header {
 	text-align:center;
-
 }
 
 .post h1 {
 	margin-bottom: 20px;
 	color: #222;
-	font: 300 32px/1.4em "Helvetica Neue", Helvetica,Arial,sans-serif;
+	font: 400 32px/1.4em "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 
 .post h2 {
-	margin-bottom: 40px;
-	  font: 300 24px/1.5 "Helvetica Neue",Helvetica,Arial,sans-serif;
-	  color: #111;
+  margin-top: 40px;
+	margin-bottom: 20px;
+  font: 300 24px/1.4em "Helvetica Neue", Helvetica, Arial, sans-serif;
+  color: #222;
 }
 
 
 .post h2.headline {
 	/*font: italic 22px/1.3em Georgia,serif;*/
-	font: normal 13px/1.5em "Helvetica Neue",Helvetica,Arial,sans-serif;
+	font: normal 13px/1.5em "Helvetica Neue", Helvetica, Arial, sans-serif;
 	margin: -5px 0 40px 0;
-	color: #b2b9be;
+	color: #111;
 	  font-size: 13px;
 	  text-transform: uppercase;
 	  letter-spacing: 2px;
@@ -441,7 +445,7 @@ Post List
 }
 
 #post-meta {
-	font-size: 13px;
+	font-size: 16px;
 	font-weight: bold;
 	line-height: 1.4;
 	border-top: 1px solid #eee;
