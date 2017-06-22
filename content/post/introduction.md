@@ -6,16 +6,15 @@ draft = true
 
 +++
 
-Hello, I am Jorge. I hack on Scala dev tools at the Scala Center.
+Hello, I am Jorge. I hack on Scala dev tools at the Scala Center. Read on me
+[here]({{< ref "about/index.md" >}}).
 
-I have started this blog post to explore passions, improve my writing skills and
-talk about stuff I find interesting.
+In this blog I talk about computers and software. From time to time, you may
+find me discussing about other fields: mathematics, game theory, behavioral
+economics, literature or philosophy -- but with less likelihood.
 
-Most of the topics will be related to Computer Science and software engineering.
-Others may be mathematics, behavioral economics, literature or philosophy -- who
-knows.
+If you like my work, spread the word. That's a good way to say thanks.
 
-I hope this may be useful to you. If you want to reach out to me, check the
-footer of this website or head yourself to the [About]({{< ref
-"about/index.md">}}) page.
+If you want to reach out to me, check the footer of this website or head
+yourself to the [About]({{< ref "about/index.md">}}) page.
 
