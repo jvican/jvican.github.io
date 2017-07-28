@@ -41,9 +41,10 @@ these use cases. Languages make different trade-offs, depending on the problems
 that their designers set on to address. What's this sbt language and how does it
 help us write our diverse builds?
 
-### The graph
+### The sbt language
 
-
+The sbt language is a set of directives that the programmer uses to interact
+with the build tool. The build tool then interprets them to.
 Writing code in normal Scala can be either comfortable or frustrating. The
 context does alter the experience
 on your context. At first, writing Scala code
@@ -55,4 +56,3 @@ together with a set of rules that are specific to it. It can either be a DSL or
 an API.
 
 [language]: https://en.wikipedia.org/wiki/Formal_language
-
