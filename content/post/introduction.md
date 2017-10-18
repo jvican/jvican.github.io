@@ -1,12 +1,20 @@
 +++
 date = "2017-03-27T23:29:12+02:00"
 title = "Informal introduction"
+description = "Declaration of intent."
 draft = true
 
 +++
 
-Hello, I am Jorge.
+Hello, I am Jorge. I hack on Scala dev tools at the Scala Center. Read on me
+[here]({{< ref "about/index.md" >}}).
 
-The idea is simple: your code is compiled many times (e.g. during CI builds) and results are usually trashed. Instead, it's better to distribute classfiles (together with the cached compilation metadata) and don't repeat this work again and again.
+In this blog I talk about computers and software. From time to time, you may
+find me discussing about other fields: mathematics, game theory, behavioral
+economics, literature or philosophy -- but with less likelihood.
 
-Using caches will not make your local workspace read-only. Once a cache is imported, it will work exactly as locally compiled one (all following compilations will be normal, incremental ones).
+If you like my work, spread the word. That's a good way to say thanks.
+
+If you want to reach out to me, check the footer of this website or head
+yourself to the [About]({{< ref "about/index.md">}}) page.
+
