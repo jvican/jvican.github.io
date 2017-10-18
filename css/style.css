@@ -661,7 +661,7 @@ a.symbol:hover {
 }
 
 code { 
-	font-family:Input Mono, Menlo, Monaco, Courier; 
+	font-family:"Input Mono", Menlo, Monaco, Inconsolata, Consolas, Courier; 
 	background-color:#EEE; font-size:13px; 
 	padding: 4px; 
 	font-weight: 400;

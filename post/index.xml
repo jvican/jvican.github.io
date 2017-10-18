@@ -2,12 +2,14 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Posts on jvican</title>
-    <link>https://jvican.github.io/post/index.xml</link>
+    <link>https://jvican.github.io/post/</link>
     <description>Recent content in Posts on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
     <lastBuildDate>Fri, 19 May 2017 20:59:57 +0200</lastBuildDate>
-    <atom:link href="https://jvican.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    
+	<atom:link href="https://jvican.github.io/post/index.xml" rel="self" type="application/rss+xml" />
+    
     
     <item>
       <title>Hide your sbt tasks and settings away</title>
@@ -15,193 +17,8 @@
       <pubDate>Fri, 19 May 2017 20:59:57 +0200</pubDate>
       
       <guid>https://jvican.github.io/post/local-tasks-sbt-plugin/</guid>
-      <description>
-
-&lt;p&gt;The sbt model encourages plugin authors to write their plugins with a fine level
-of granularity. This level of granularity often forces users to create settings
-for internal, cached values and tasks for private functionality. As a result,
-these settings and tasks end up exposed in the public API, visible for sbt users
-and other plugin authors.&lt;/p&gt;
-
-&lt;p&gt;This post explains how to use local tasks and settings to hide the
-implementation details of your plugins and builds. This helps you evolve them
-much faster without the concern of breaking other people&amp;rsquo;s builds.&lt;/p&gt;
-
-&lt;h2 id=&#34;decide-the-scope-of-your-settings-and-task-first&#34;&gt;Decide the scope of your settings and task first&lt;/h2&gt;
-
-&lt;p&gt;I find good practice to define the settings on different places depending on
-their visibility and scope. My rule of thumb is to define internal settings and
-tasks in a scope inaccessible from &lt;code&gt;autoImport&lt;/code&gt;, either private outside of my
-plugin package or protected.&lt;/p&gt;
-
-&lt;p&gt;This is how I usually define a &amp;ldquo;private&amp;rdquo; setting in plugin &lt;code&gt;foo&lt;/code&gt;:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;private[foo] object InternalSettings {
-  private[foo] val commitId = settingKey[String](
-    &amp;quot;The current commit id, only for internal use.&amp;quot;)
-}
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;Then, I import &lt;code&gt;InternalSettings&lt;/code&gt; to whichever place defines its implementation
-and add it to my project or build settings. Note that to make sure this setting
-can never be referred outside of &lt;code&gt;foo&lt;/code&gt;&lt;a rel=&#39;footnote&#39; href=&#39;#f1&#39;&gt;1&lt;/a&gt;, I have
-defined both &lt;code&gt;commitId&lt;/code&gt; and its owner as &lt;code&gt;private[foo]&lt;/code&gt;.&lt;/p&gt;
-
-&lt;p&gt;Anyone familiar with access modifiers and Scala&amp;rsquo;s scoping rules will be sure
-that &lt;code&gt;commitId&lt;/code&gt; is inaccessible from sbt plugins defined in another namespace
-until they&amp;hellip;&lt;/p&gt;
-
-&lt;h2 id=&#34;meet-direct-setting-and-task-references&#34;&gt;Meet direct setting and task references&lt;/h2&gt;
-
-&lt;p&gt;For sbt, a setting or a task is just an id and its type signature. If two
-settings have the same, then they &lt;em&gt;are&lt;/em&gt; the same setting! You can use this trick
-to prove our previous hypothesis wrong:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;val hijackedCommitId = SettingKey[String](&amp;quot;commitId&amp;quot;)
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;Note two things:&lt;/p&gt;
-
-&lt;ul&gt;
-&lt;li&gt;We use &lt;code&gt;SettingKey&lt;/code&gt; instead of &lt;code&gt;settingKey&lt;/code&gt; because it allow us to pass in
-the name of the setting we require (likewise for &lt;code&gt;TaskKey&lt;/code&gt; and &lt;code&gt;taskKey&lt;/code&gt;).&lt;/li&gt;
-&lt;li&gt;The parameter for &lt;code&gt;SettingKey&lt;/code&gt; is the name of the identifier that we used to
-define our private key: &lt;code&gt;commitId&lt;/code&gt; &lt;a rel=&#34;footnote&#34; name=&#34;#f2&#34;&gt;2&lt;/a&gt;.&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;We thought referring to &lt;code&gt;commitId&lt;/code&gt; was impossible because &lt;code&gt;commitId&lt;/code&gt; was
-qualified as &lt;code&gt;private&lt;/code&gt;.  However, the above declaration proves us wrong. What
-did we miss? Let&amp;rsquo;s step back and see the whole picture.&lt;/p&gt;
-
-&lt;h3 id=&#34;what-did-we-miss&#34;&gt;What did we miss?&lt;/h3&gt;
-
-&lt;p&gt;Sbt is a build tool with three main constructs. Two of these constructs,
-settings and tasks, are known at compile-time but their relationships and scopes
-are not.&lt;/p&gt;
-
-&lt;p&gt;The build tool, however, needs to understand and process them so that users can
-access and manipulate this information (via &lt;code&gt;show&lt;/code&gt;, &lt;code&gt;inspect&lt;/code&gt;, &lt;code&gt;set&lt;/code&gt;, et
-cetera). If the knowledge at compile-time is not enough, where does sbt look for
-the whole picture?&lt;/p&gt;
-
-&lt;p&gt;The answer is &lt;strong&gt;runtime&lt;/strong&gt;!&lt;/p&gt;
-
-&lt;p&gt;Sbt lifts Scala code into its own runtime structure. This runtime structure can
-be traversed and manipulated and holds all the information about a given build.&lt;/p&gt;
-
-&lt;p&gt;In fact, this runtime structure is somewhat equivalent to Java reflection and
-addresses the same limitation that JVMs have: they don&amp;rsquo;t know how programs will
-be linked, so they delay linking and bytecode compilation to runtime. The same
-holds for sbt &amp;ndash; missing pieces like global and local plugins are only known
-when users run &lt;code&gt;sbt&lt;/code&gt;.&lt;/p&gt;
-
-&lt;h2 id=&#34;an-unexpected-leak-to-the-users&#34;&gt;An unexpected leak to the users&lt;/h2&gt;
-
-&lt;p&gt;So, you may argue that if someone is so desperate as to make runtime references
-to your private settings, we should let them be! After all, it&amp;rsquo;s clear that they
-rely on implementation details that may not exist in a future version of your
-plugin, right?&lt;/p&gt;
-
-&lt;p&gt;That&amp;rsquo;s at least my stance and holds also for Java reflection. You usually don&amp;rsquo;t
-care if programs are accessing your private methods using reflection. Both the
-API designer and the user know that&amp;rsquo;s unsupported &amp;mdash; otherwise, we couldn&amp;rsquo;t
-evolve any API.&lt;/p&gt;
-
-&lt;p&gt;But there&amp;rsquo;s a bigger disadvantage with our previous definition of &lt;code&gt;commitId&lt;/code&gt;.
-What happens when your plugin users type &lt;code&gt;&#39;com&#39; + TAB&lt;/code&gt; and expect the sbt
-autocomplete to do its job?&lt;/p&gt;
-
-&lt;pre&gt;&lt;code&gt;&amp;gt; com
-commands                  commitId                  compile                   compile:                  compileAnalysisFilename   compileIncremental        
-compilerCache             compilerReporter          compilers                 completions 
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;They will see your private key in their console.&lt;/p&gt;
-
-&lt;p&gt;This is an important leak of your private API &amp;ndash; those tasks and settings are
-cluttering users&amp;rsquo; screens and giving them the impression that their use is
-encouraged! The more you modularize your plugin, the more your users will have
-access to these implementation details.  That&amp;rsquo;s not a good incentive for solid
-plugin development. So that&amp;rsquo;s why I want you to&amp;hellip;&lt;/p&gt;
-
-&lt;h2 id=&#34;meet-local-settings-and-tasks&#34;&gt;Meet local settings and tasks&lt;/h2&gt;
-
-&lt;p&gt;Settings and tasks can be &amp;ldquo;local&amp;rdquo;. Local settings and tasks have two properties:&lt;/p&gt;
-
-&lt;ul&gt;
-&lt;li&gt;They are ignored by sbt autocompletion.&lt;/li&gt;
-&lt;li&gt;They have no name (their name is freshly generated).&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;As a result, users cannot &lt;code&gt;show&lt;/code&gt; or &lt;code&gt;inspect&lt;/code&gt; them and plugin authors can only
-use them via compile-time references (meaning access modifiers are the absolute
-truth to control how these are accessed). This notion of local fixes our
-previous problems at one stroke.&lt;/p&gt;
-
-&lt;p&gt;I recently discovered local settings and tasks while answering
-&lt;a href=&#34;https://github.com/imarios&#34;&gt;@imarios&lt;/a&gt;&amp;rsquo;s &lt;a href=&#34;https://github.com/sbt/sbt/issues/3192&#34;&gt;request for allowing keys to be
-private at the plugin level&lt;/a&gt;. Though
-they were initially created to address another problem, their properties are
-ideal to address the limitations at hand.&lt;/p&gt;
-
-&lt;p&gt;Let&amp;rsquo;s rewrite &lt;code&gt;commitId&lt;/code&gt; to be a local setting:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&#34;language-scala&#34;&gt;private[foo] object InternalSettings {
-  private[foo] val commitId = SettingKey.local[String]
-}
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;To create local tasks, invoke &lt;code&gt;TaskKey.local[String]&lt;/code&gt;.&lt;/p&gt;
-
-&lt;p&gt;It&amp;rsquo;s worth pointing out that local settings and tasks have no descriptions, the
-only thing they need is a manifest (a type signature, &lt;code&gt;String&lt;/code&gt; in our case).&lt;/p&gt;
-
-&lt;h2 id=&#34;conclusion&#34;&gt;Conclusion&lt;/h2&gt;
-
-&lt;p&gt;All in all, local settings and tasks help you build robust plugins that hide
-implementation details from other sbt plugins and users&lt;a rel=&#39;footnote&#39; href=&#39;#f3&#39;&gt;3&lt;/a&gt;.
-This keeps your plugins hygienic in several ways:&lt;/p&gt;
-
-&lt;ol&gt;
-&lt;li&gt;Sbt users will not see those implementation details while autocompleting or
-inspecting the settings.&lt;/li&gt;
-&lt;li&gt;Plugin authors will not be able to refer to those settings and tasks.&lt;/li&gt;
-&lt;/ol&gt;
-
-&lt;hr&gt;
-
-&lt;p&gt;&lt;a name=&#39;f1&#39;&gt;1.&lt;/a&gt; See &lt;a href=&#34;https://scastie.scala-lang.org/q8yukWZXQuSrJTGgLJu98g&#34;&gt;this Scastie
-link&lt;/a&gt; that shows how you
-could &lt;em&gt;theoretically&lt;/em&gt; cheat access modifiers if only &lt;code&gt;InternalSettings&lt;/code&gt; is
-&lt;code&gt;private[foo]&lt;/code&gt; and it&amp;rsquo;s assigned to another term.&lt;/p&gt;
-
-&lt;p&gt;&lt;a name=&#39;f2&#39;&gt;2.&lt;/a&gt; Remember that &lt;code&gt;settingKey&lt;/code&gt; is a macro that gets the name of
-the setting from the left hand side term that defines it.&lt;/p&gt;
-
-&lt;p&gt;&lt;a name=&#39;f3&#39;&gt;3.&lt;/a&gt; Depending on your code structure and access modifiers,
-things could still be accessible via normal Java reflection. However, that
-should not keep you up at night.&lt;/p&gt;
-</description>
-    </item>
-    
-    <item>
-      <title>Informal introduction</title>
-      <link>https://jvican.github.io/post/introduction/</link>
-      <pubDate>Mon, 27 Mar 2017 23:29:12 +0200</pubDate>
-      
-      <guid>https://jvican.github.io/post/introduction/</guid>
-      <description>&lt;p&gt;Hello, I am Jorge. I hack on Scala dev tools at the Scala Center. Read on me
-&lt;a href=&#34;https://jvican.github.io/about/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;In this blog I talk about computers and software. From time to time, you may
-find me discussing about other fields: mathematics, game theory, behavioral
-economics, literature or philosophy &amp;ndash; but with less likelihood.&lt;/p&gt;
-
-&lt;p&gt;If you like my work, spread the word. That&amp;rsquo;s a good way to say thanks.&lt;/p&gt;
-
-&lt;p&gt;If you want to reach out to me, check the footer of this website or head
-yourself to the &lt;a href=&#34;https://jvican.github.io/about/&#34;&gt;About&lt;/a&gt; page.&lt;/p&gt;
-</description>
+      <description>The sbt model encourages plugin authors to write their plugins with a fine level of granularity. This level of granularity often forces users to create settings for internal, cached values and tasks for private functionality. As a result, these settings and tasks end up exposed in the public API, visible for sbt users and other plugin authors.
+This post explains how to use local tasks and settings to hide the implementation details of your plugins and builds.</description>
     </item>
     
   </channel>
