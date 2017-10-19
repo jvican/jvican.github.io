@@ -1,0 +1,231 @@
+    <!DOCTYPE html>
+<html lang="en-us">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="author" content="Jorge Vicente Cantero">
+		
+		<meta name="generator" content="Hugo 0.29" />
+		<title>Hygiene in sbt &middot; jvican</title>
+		<link rel="shortcut icon" href="https://jvican.github.io/images/favicon.ico">
+		<link rel="stylesheet" href="https://jvican.github.io/css/style.css">
+		<link rel="stylesheet" href="https://jvican.github.io/css/highlight.css">
+		
+
+		
+		<link rel="stylesheet" href="https://jvican.github.io/css/monosocialiconsfont.css">
+		
+
+		
+		<link href="https://jvican.github.io/index.xml" rel="alternate" type="application/rss+xml" title="jvican" />
+		
+
+		<meta property="og:title" content="Hygiene in sbt" />
+<meta property="og:description" content="Keep your sbt workflow fast and simple." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jvican.github.io/post/sbt-hygiene/" />
+
+
+
+<meta property="article:published_time" content="2017-10-19T23:29:12&#43;02:00"/>
+<meta property="article:modified_time" content="2017-10-19T23:29:12&#43;02:00"/>
+
+
+
+
+
+
+
+
+
+
+
+	    
+	    
+<meta itemprop="name" content="Hygiene in sbt">
+<meta itemprop="description" content="Keep your sbt workflow fast and simple.">
+
+
+<meta itemprop="dateModified" content="2017-10-19T23:29:12&#43;02:00" />
+<meta itemprop="wordCount" content="429">
+
+
+
+<meta itemprop="keywords" content="" />
+
+	    <meta name="twitter:card" content="summary"/><meta name="twitter:title" content="Hygiene in sbt"/>
+<meta name="twitter:description" content="Keep your sbt workflow fast and simple."/>
+<meta name="twitter:site" content="@https://www.twitter.com/jvican"/>
+
+	</head>
+
+    <body>
+       <nav class="main-nav">
+	
+	
+		<a href='https://jvican.github.io/'> <span class="arrow">←</span>Home</a>
+	
+
+	
+		<a href='https://jvican.github.io/about'>About me</a>
+	
+
+	
+	<a class="cta" href="https://jvican.github.io/index.xml">Subscribe</a>
+	
+</nav>
+
+        <section id="wrapper">
+            <article class="post">
+                <header>
+                    <h1>Hygiene in sbt</h1>
+                    <h2 class="headline">
+                    October 19, 2017 
+                    <br>
+                    
+                    </h2>
+                </header>
+                <section id="post-body">
+                    
+
+<p>Almost everyone I know enjoys clean places &mdash; no smells, some order and lack of
+dirt. In my experience, it is difficult to come across someone that claims
+publicly its dislike for cleanliness.</p>
+
+<p>But hygiene is a whim. In reality, most of people believe it has too high of a
+cost and sacrifice it. They prefer to spend their time and money on urgent
+goals, not niceties. This seems to explain why they only clean common spaces
+when the situation becomes unbearable rather than regularly, and why they prefer
+to delegate it to others rather than creating cleaning habits.</p>
+
+<p>At the end, hygiene is an extra people learn to live without.</p>
+
+<hr>
+
+<p>In the past months, I&rsquo;ve read many, many sbt builds. I observed that no matter
+how experienced and skilled the maintainers were, all the builds were
+unreadable, complex and difficult to change.</p>
+
+<p>I knew that people&rsquo;s understanding of sbt was limited, blurry at best. But I was
+not prepared for the bad sbt practices and the complicated setups that I
+encountered.</p>
+
+<p>All the builds I hacked on were from popular projects in the Scala community.
+If this is happening in projects that enjoy a steady flow of contributors and
+are run by experienced Scala developers, how does the average sbt build look
+like?</p>
+
+<p>I didn&rsquo;t want to imagine, but I decided to look for answers. Why do people not
+write readable and change-friendly builds, in the first place?</p>
+
+<h2 id="the-goal-of-our-builds">The goal of our builds</h2>
+
+<p><strong>Most projects&rsquo; builds fall short because there is no incentive to write good
+builds.</strong></p>
+
+<p>Writing builds is purely instrumental. We change the build <em>just enough</em> to get
+our project compiling, running and passing tests. Builds are not a goal, they
+are a means towards a real goal: writing software.</p>
+
+<p>It makes sense that we prefer to invest our time on improving the quality of the
+software we write rather than on the software that helps us write programs.
+After all, that&rsquo;s what whomever judges our work will examine.</p>
+
+<p>How can we expect developers to create excellent tools to improve their
+productivity if nobody rewards them for doing so?</p>
+
+<p>If we want people to keep their sbt builds clean (making a wise use of the build
+tool and improving their developer workflows), we need to lower its costs.
+Hygiene in sbt (and generally in all our tools) is important to make builds:</p>
+
+<ul>
+<li>Easy to read for beginners.</li>
+<li>Easy to change and to iterate on for contributors.
+<br /></li>
+</ul>
+
+<p>But most of developers
+Letting developers get used to lack of hygiene perpetuates our current situation.
+This is not acceptable.</p>
+
+                </section>
+            </article>
+            <footer id="post-meta" class="clearfix">
+                <a href="https://twitter.com/jvican">
+                        <img class="avatar" src="https://jvican.github.io/images/avatar.png">
+                        <div>
+                            <span class="dark">Jorge Vicente Cantero</span>
+                            <span>I hack on Scala and devtools.</span>
+                        </div>
+                    </a>
+                <section id="sharing">
+                    <a class="twitter" href="https://twitter.com/intent/tweet?text=https%3a%2f%2fjvican.github.io%2fpost%2fsbt-hygiene%2f - Hygiene%20in%20sbt by @jvican"><span class="icon-twitter"> Tweet</span></a>
+
+<a class="facebook" href="#" onclick="
+    window.open(
+      'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href),
+      'facebook-share-dialog',
+      'width=626,height=436');
+    return false;"><span class="icon-facebook-rect"> Share</span>
+</a>
+
+                </section>
+            </footer>
+
+            
+
+            <ul id="post-list" class="archive readmore">
+    <h3>Read more</h3>
+
+    
+    
+    
+        
+        <li>
+            <a href="https://jvican.github.io/post/sbt-hygiene/">Hygiene in sbt<aside class="dates">Oct 19</aside></a>
+        </li>
+        
+   
+</ul>
+
+            <footer id="footer">
+    
+        <div id="social">
+
+	
+	
+    
+    <a class="symbol" href="https://www.github.com/jvican">
+        circlegithub
+    </a>
+    
+    <a class="symbol" href="https://www.twitter.com/jvican">
+        circletwitterbird
+    </a>
+    
+
+
+</div>
+
+    
+    <p class="small">
+    
+        © Copyright 2017 Jorge Vicente Cantero
+    
+    </p>
+</footer>
+
+        </section>
+
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script src="https://jvican.github.io/js/main.js"></script>
+<script src="https://jvican.github.io/js/highlight.js"></script>
+<script>hljs.initHighlightingOnLoad();</script>
+
+
+
+
+
+    </body>
+</html>

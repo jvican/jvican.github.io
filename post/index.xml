@@ -6,19 +6,19 @@
     <description>Recent content in Posts on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Fri, 19 May 2017 20:59:57 +0200</lastBuildDate>
+    <lastBuildDate>Thu, 19 Oct 2017 23:29:12 +0200</lastBuildDate>
     
 	<atom:link href="https://jvican.github.io/post/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
-      <title>Hide your sbt tasks and settings away</title>
-      <link>https://jvican.github.io/post/local-tasks-sbt-plugin/</link>
-      <pubDate>Fri, 19 May 2017 20:59:57 +0200</pubDate>
+      <title>Hygiene in sbt</title>
+      <link>https://jvican.github.io/post/sbt-hygiene/</link>
+      <pubDate>Thu, 19 Oct 2017 23:29:12 +0200</pubDate>
       
-      <guid>https://jvican.github.io/post/local-tasks-sbt-plugin/</guid>
-      <description>The sbt model encourages plugin authors to write their plugins with a fine level of granularity. This level of granularity often forces users to create settings for internal, cached values and tasks for private functionality. As a result, these settings and tasks end up exposed in the public API, visible for sbt users and other plugin authors.
-This post explains how to use local tasks and settings to hide the implementation details of your plugins and builds.</description>
+      <guid>https://jvican.github.io/post/sbt-hygiene/</guid>
+      <description>Almost everyone I know enjoys clean places &amp;mdash; no smells, some order and lack of dirt. In my experience, it is difficult to come across someone that claims publicly its dislike for cleanliness.
+But hygiene is a whim. In reality, most of people believe it has too high of a cost and sacrifice it. They prefer to spend their time and money on urgent goals, not niceties. This seems to explain why they only clean common spaces when the situation becomes unbearable rather than regularly, and why they prefer to delegate it to others rather than creating cleaning habits.</description>
     </item>
     
   </channel>
