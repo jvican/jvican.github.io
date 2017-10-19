@@ -9,7 +9,7 @@ disqusShortname = ""
 [params]
 	name = "Jorge Vicente Cantero"
 	description = ""
-	bio = "I hack on Scala."
+	bio = "I hack on Scala and devtools."
 	twitter = "jvican"
 	enableRSS = true
 
@@ -30,7 +30,7 @@ disqusShortname = ""
 	copyright = ""
 
 	# Sharing options and author information in posts
-	aboutAuthor = "I hack on Scala."
+	aboutAuthor = "I hack on Scala and devtools."
 	tweet = ""
 	share = ""
 
