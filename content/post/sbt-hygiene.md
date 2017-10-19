@@ -32,24 +32,31 @@ are run by experienced Scala developers, how does the average sbt build look
 like?
 
 I didn't want to imagine, but I decided to look for answers. Why do people not
-write readable and change-friendly builds?
+write readable and change-friendly builds, in the first place?
 
 ## The goal of our builds
 
 **Most projects' builds fall short because there is no incentive to write good
 builds.**
-
+  
 Writing builds is purely instrumental. We change the build *just enough* to get
 our project compiling, running and passing tests. Builds are not a goal, they
-are a means.
-
+are a means towards a real goal: writing software.
+  
 It makes sense that we prefer to invest our time on improving the quality of the
 software we write rather than on the software that helps us write programs.
-That's what whomever judges our work will examine.
-
+After all, that's what whomever judges our work will examine.
+  
 How can we expect developers to create excellent tools to improve their
-productivity if nobody rewards them for doing so? Experience tells us that tools
-are crucial for success, but if we want people to take us seriously we need to
-lower the barrier to experience productive workflows.
-
-
+productivity if nobody rewards them for doing so?
+  
+If we want people to keep their sbt builds clean (making a wise use of the build
+tool and improving their developer workflows), we need to lower its costs.
+Hygiene in sbt (and generally in all our tools) is important to make builds:
+  
+  * Easy to read for beginners.
+  * Easy to change and to iterate on for contributors.
+  
+But most of developers 
+Letting developers get used to lack of hygiene perpetuates our current situation.
+This is not acceptable.
