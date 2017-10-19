@@ -6,19 +6,21 @@
     <description>Recent content in Posts on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 19 Oct 2017 23:29:12 +0200</lastBuildDate>
+    <lastBuildDate>Mon, 27 Mar 2017 23:29:12 +0200</lastBuildDate>
     
 	<atom:link href="https://jvican.github.io/post/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
-      <title>Hygiene in sbt</title>
-      <link>https://jvican.github.io/post/sbt-hygiene/</link>
-      <pubDate>Thu, 19 Oct 2017 23:29:12 +0200</pubDate>
+      <title>Informal introduction</title>
+      <link>https://jvican.github.io/post/introduction/</link>
+      <pubDate>Mon, 27 Mar 2017 23:29:12 +0200</pubDate>
       
-      <guid>https://jvican.github.io/post/sbt-hygiene/</guid>
-      <description>Almost everyone I know enjoys clean places &amp;mdash; no smells, some order and lack of dirt. In my experience, it is difficult to come across someone that claims publicly its dislike for cleanliness.
-But hygiene is a whim. In reality, most of people believe it has too high of a cost and sacrifice it. They prefer to spend their time and money on urgent goals, not niceties. This seems to explain why they only clean common spaces when the situation becomes unbearable rather than regularly, and why they prefer to delegate it to others rather than creating cleaning habits.</description>
+      <guid>https://jvican.github.io/post/introduction/</guid>
+      <description>Hello, I am Jorge. I hack on Scala dev tools at the Scala Center. Read on me here.
+In this blog I talk about computers and software. From time to time, you may find me discussing about other fields: mathematics, game theory, behavioral economics, literature or philosophy &amp;ndash; but with less likelihood.
+If you like my work, spread the word. That&amp;rsquo;s a good way to say thanks.
+If you want to reach out to me, check the footer of this website or head yourself to the About page.</description>
     </item>
     
   </channel>

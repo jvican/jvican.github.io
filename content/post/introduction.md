@@ -2,8 +2,6 @@
 date = "2017-03-27T23:29:12+02:00"
 title = "Informal introduction"
 description = "Declaration of intent."
-draft = true
-
 +++
 
 Hello, I am Jorge. I hack on Scala dev tools at the Scala Center. Read on me

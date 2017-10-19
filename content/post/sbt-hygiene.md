@@ -2,6 +2,7 @@
 date = "2017-10-19T23:29:12+02:00"
 title = "Hygiene in sbt"
 description = "Keep your sbt workflow fast and simple."
+draft = true
 +++
 
 Almost everyone I know enjoys clean places --- no smells, some order and lack of
