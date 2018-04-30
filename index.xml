@@ -6,20 +6,10 @@
     <description>Recent content on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 19 Oct 2017 23:29:12 +0200</lastBuildDate>
+    <lastBuildDate>Tue, 28 Mar 2017 19:28:49 +0200</lastBuildDate>
     
 	<atom:link href="https://jvican.github.io/index.xml" rel="self" type="application/rss+xml" />
     
-    
-    <item>
-      <title>Hygiene in sbt</title>
-      <link>https://jvican.github.io/post/sbt-hygiene/</link>
-      <pubDate>Thu, 19 Oct 2017 23:29:12 +0200</pubDate>
-      
-      <guid>https://jvican.github.io/post/sbt-hygiene/</guid>
-      <description>Almost everyone I know enjoys clean places &amp;mdash; no smells, some order and lack of dirt. In my experience, it is difficult to come across someone that claims publicly its dislike for cleanliness.
-But hygiene is a whim. In reality, most of people believe it has too high of a cost and sacrifice it. They prefer to spend their time and money on urgent goals, not niceties. This seems to explain why they only clean common spaces when the situation becomes unbearable rather than regularly, and why they prefer to delegate it to others rather than creating cleaning habits.</description>
-    </item>
     
     <item>
       <title>About</title>
@@ -27,11 +17,9 @@ But hygiene is a whim. In reality, most of people believe it has too high of a c
       <pubDate>Tue, 28 Mar 2017 19:28:49 +0200</pubDate>
       
       <guid>https://jvican.github.io/about/</guid>
-      <description>I work at the Scala Center at EPFL. I hack on compilers and tooling.
-I am also the Scala Improvement Process lead.
-I contribute to the following projects:
- Zinc, the Scala incremental compiler. sbt, the Scala build tool. Scala Center projects, like the Scala Platform and compiler plugins. Scalac, the Scala compiler.   Contact me via:
- GitHub. Gitter. Twitter.  </description>
+      <description>I work at the Scala Center at EPFL. I hack on tooling, primarly in compilers and build tools. My main focus is developer productivity.
+I am also involved in the evolution of the Scala language as the Scala Improvement Process lead.
+My work as a Scala contributor  Bloop, a fast compile/test server for Scala and Java. Zinc, the official Scala incremental compiler. sbt, one of the most popular Scala build tools.</description>
     </item>
     
     <item>
