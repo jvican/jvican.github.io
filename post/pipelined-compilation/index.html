@@ -50,7 +50,7 @@
 
 <meta itemprop="datePublished" content="2017-10-19T23:29:12&#43;02:00" />
 <meta itemprop="dateModified" content="2017-10-19T23:29:12&#43;02:00" />
-<meta itemprop="wordCount" content="7">
+<meta itemprop="wordCount" content="477">
 
 
 
@@ -90,7 +90,78 @@
                     </h2>
                 </header>
                 <section id="post-body">
-                    <p>Compilation pipelining is a concept similar to</p>
+                    
+
+<p>Last year, at Scalasphere 2017, Rory Graves gave a great presentation about
+<a href="https://www.youtube.com/watch?v=QO1Hi8vwbCY">improving compilation performance on Scalac</a>.</p>
+
+<p>In the talk, Rory goes through some of the changes he made to the compiler,
+explains how impactful they were and shows how hard it is to make a difference in compilation performance.</p>
+
+<p>My favorite part of the talk is at the end, when he pitches in a new idea to
+get faster compilation times called <em>pipelined compilation</em>. Unlike other ideas
+to speed up the compiler, pipelined compilation doesn&rsquo;t require fancy
+profile-based optimizations, but mostly a change in how build tools compile
+Scala projects.</p>
+
+<p>To explain the idea, I first need to quickly introduce some high-level
+concepts for those unfamiliar on how Scalac works.</p>
+
+<h2 id="the-scala-pickle-information">The Scala pickle information</h2>
+
+<p>The Scala compiler has different backends, but it has traditionally targeted
+the Java Virtual Machine. The primary input of the Java Virtual Machine is
+class files. Class files contain the bytecode (executable code that is
+afterwards interpreted and compiled by the virtual machine) and some metadata
+about the code.</p>
+
+<p>These class files are also an input to the compiler and they are accessible
+through the classpath. The Scala compiler takes some Scala source files and a classpath, and then outputs class files.</p>
+
+<p>However, Scala is a richer language than Java &mdash; and so class files cannot
+encode rich, high-level type information that only the Scala compiler
+understands.</p>
+
+<p>As a result, the Scala compiler stores this high-level information as binary
+data inside Scala-generated class files. This data is accessible via the
+<code>ScalaSignature</code> annotation defined by the Scala compiler and so, every time the
+compiler detects Scala-generated class files in its compilation classpath, it
+reads this information and uses it to populate its symbol table.</p>
+
+<p>The scala signature information is commonly called &ldquo;Scala pickles&rdquo;, and the
+process of reading and writing the data is referred to as &ldquo;unpickling&rdquo; and
+&ldquo;pickling&rdquo;.</p>
+
+<h3 id="example">Example</h3>
+
+<p>Let&rsquo;s say we have the following projects:</p>
+
+<p>=&gt; <strong>A</strong>: <code>object Foo { type Bar = Int }</code></p>
+
+<p>=&gt; <strong>B</strong>: <code>object Baz { val t: Foo.Bar = 2 }</code></p>
+
+<p>Note that <code>B</code> depends on <code>A</code>.</p>
+
+<p>When you tell your build tool to compile <code>B</code>, the following happens:</p>
+
+<ol>
+<li>Scalac compiles <code>A</code> with a classpath that only contains the Scala standard
+library and reflect. It then typechecks the code and generates a class file
+<code>Foo</code> with a scala pickle inside that represents the object <code>Foo</code> and all its
+inner members.</li>
+<li>Scalac compiles <code>B</code> with <code>A</code>&rsquo;s class files on its classpath. Before
+typechecking the code, it reads the Scala pickles from <code>A</code>&rsquo;s class files and
+populates the symbol table. Now, the Scala compiler knows everything about
+<code>Foo</code> and can proceed with compilation and generate class files for <code>B</code>.</li>
+</ol>
+
+<hr>
+
+<p>One year later, I eventually put some time together to make a prototype that
+makes pipelined compilation work in <a href="https://github.com/scalacenter/zinc">Zinc</a> and exposes it to users via
+<a href="https://github.com/scalacenter/bloop">Bloop</a>.</p>
+
+<h2 id="pipelined-compilation">Pipelined compilation</h2>
 
                 </section>
             </article>
