@@ -1,0 +1,863 @@
+<html>
+	<head>
+		<meta charset="utf-8">
+
+		<title>The BSP protocol and new IDEAs</title>
+
+		<meta name="description" content="">
+		<meta name="author" content="Jorge Vicente Cantero & Justin Kaeser">
+
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/simple.css" id="theme">
+		<link rel="stylesheet" href="css/custom.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/github.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+    <body><div class="reveal simple"><div class="slides">
+
+<section>
+  <h1>
+    Build Server Protocol and new IDEAs</h1></section>
+ <section>
+  <h3>
+    <img style="border: none; width: 30%; box-shadow: none;" src="img/justin.jpeg" />
+    <br />
+    Justin <a href="https://twitter.com/ebenwert">@ebenwert</a></h3>
+  <ul>
+    <li>
+      Build tools engineer at <a href="http://jetbrains.com/">Jetbrains</a>
+      <ul>
+        <li>
+          I work on the IntelliJ sbt integration</li>
+        <li>
+          I believe in tools before rules
+</li></ul></li>
+    <li>
+      <b>Obsession</b>: build tools complaints in Gitter</li></ul></section>
+<section>
+  <h3>
+    <img style="border: none; width: 30%; box-shadow: none;" src="img/jvican.jpg" />
+    <br />
+    Jorge <a href="https://twitter.com/jvican">@jvican</a></h3>
+  <ul>
+    <li>
+      Devtools for ~2.5 years at <a href="https://scala.epfl.ch">Scala Center</a>
+      <ul>
+        <li>
+          I co-maintain Scala's incremental compiler (Zinc)</li>
+        <li>
+          I work on build tools and build servers</li>
+        <li>
+          <code>scalac</code>, compiler plugins and infrastructure
+</li></ul></li>
+    <li>
+      <b>Obsession</b>: developer productivity</li></ul></section>
+<section>
+  <br />
+  <h2>
+    <strong>
+      Agenda</strong></h2>
+  <h4></h4>
+  <ol>
+    <li>
+      The BSP IDEA</li>
+    <li>
+      The BSP protocol</li>
+    <li>
+      The BSP integrations</li>
+    <br /></ol></section>
+<section>
+  <div style="border: 4px solid #000;">
+    <br />
+    <h2>
+      <strong>
+        Goal</strong></h2>
+    <h4></h4>
+    <ol>
+      <li>
+        Explain why BSP solves a real problem</li>
+      <li>
+        Share our findings with the audience</li>
+      <br /></ol></div></section>
+<section>
+  <h2>
+    How BSP came up</h2>
+  <h3>
+    ...</h3></section>
+<section>
+  <h2>
+    Use case (I)</h2>
+  <h3>
+    <i>Language servers</i></h3>
+  <br />
+  <img style="border: none; width: 85%; box-shadow: none;" src="img/language-servers.svg" /></section>
+<section>
+  <h2>
+    Use case (II)</h2>
+  <h3>
+    <i>Editors</i></h3>
+  <br />
+  <img style="border: none; width: 70%; box-shadow: none;" src="img/editors.svg" /></section>
+<section>
+  <h2>
+    Build tools</h2>
+  <h3>
+    As the ultimate source of truth</h3>
+  <br />
+  <img style="border: none; width: 70%; box-shadow: none;" src="img/build-tools.svg" /></section>
+<section>
+  <h3>
+    <strong>100</strong> combinations!</h3>
+  <br />
+  <img style="border: none; width: 90%; box-shadow: none;" src="img/editors-and-build-tools.svg" /></section>
+<section>
+  <h3>
+    <strong>BSP</strong> (Build Server Protocol) is an attempt to formalize the communication between <strong>language server/editors</strong> and <strong>build tools</strong>.</h3></section>
+<section>
+  <blockquote>
+    <h4>
+      «<strong>LSP</strong> creates the opportunity to reduce the m-times-n complexity problem of providing a high level of support for <strong>any programming language</strong> in any editor, IDE, or client endpoint to a simpler m-plus-n problem.»
+      <br />
+      <p style="font-size: 0.75em;">
+        
+        -- https://langserver.org/</p></h4></blockquote></section>
+<section>
+  <blockquote>
+    <h4>
+      «<strong>BSP</strong> creates the opportunity to reduce the m-times-n complexity problem of providing a high level of support for <strong>any build tool</strong> in any editor, IDE, or client endpoint to a simpler m-plus-n problem.»
+      <br />
+      <p style="font-size: 0.75em;">
+        
+        -- Justin and Jorge</p></h4></blockquote></section>
+<section>
+  <img style="border: none; width: 55%; box-shadow: none;" src="img/sam.jpg" />
+  <blockquote>
+    <h4>
+      «Bejeezus, I just want bloody fast and correct compiles for my team.»
+      <br />
+      <p style="font-size: 0.75em;">
+        
+        -- Sam Halliday, serious devtools engineer</p></h4></blockquote></section>
+<section>
+  <h3>
+    Developer productivity engineers</h3>
+  <h4>
+    <strong>
+      want solutions that are</strong></h4>
+  <br />
+  <ol>
+    <li>
+      Extensible</li>
+    <li>
+      Easy to maintain</li>
+    <li>
+      And ideally
+      <ol>
+        <li>
+          Build tool independent</li>
+        <li>
+          Editor independent</li></ol></li></ol></section>
+<section>
+  <h4>
+    <pre style="font-size: 0.56em"><code class="hljs .github-gist github-gist diff" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+--- a/nothing.properties
++++ b/bsp.properties
+- build.tool.specific=true
+- one.time.effort=false
+- shared.code=false
+- robust=false
+- easier.to.maintain=false
+- easier.to.test=false
++ build.tool.specific=false
++ one.time.effort=true
++ shared.code=true
++ robust=true
++ easier.to.maintain=true
++ easier.to.test=true</code></pre></h4></section>
+<section>
+  <h2>
+    <strong>
+      BSP Protocol</strong></h2>
+  <span></span>
+  <span></span></section>
+<section>
+  <h2>
+    Fundamentals I</h2>
+  <ol>
+    <li>
+      JSON-RPC-based protocol</li>
+    <li>
+      It has the notion of
+      <ul>
+        <li>
+          Request/Response</li>
+        <li>
+          Bidirectional notifications</li></ul></li></ol></section>
+<section>
+  <h2>
+    Fundamentals II</h2>
+  <ol>
+    <li>
+      Modelled after LSP
+      <ul>
+        <li>
+          Specification follows same format</li>
+        <li>
+          Client-driven design</li>
+        <li>
+          It reuses some LSP methods, e.g.</li>
+        <ul>
+          <li>
+            <code>window/logMessage</code></li>
+          <li>
+            <code>textDocument/publishDiagnostics</code></li>
+          <li>
+            <code>$/cancelRequest</code></li></ul></ul></li>
+     <li>
+       Aims to be implementable alongisde LSP</li></ol></section>
+<section>
+  <h2>
+    Server lifetime</h2>
+  <br />
+  <h5>
+    <ul>
+      <li>
+        Firing up BSP server
+        <ul>
+          <li>
+            <code>stdin</code>/<code>stdout</code></li>
+          <li>
+            TCP/UDP connections.</li>
+          <li>
+            Unix Sockets/Windows pipes</li></ul></li>
+      <li>
+        Initializing BSP connection
+        <ul>
+          <li>
+            Similar to TCP 3-way handshake</li></ul></li>
+      <li>
+        Shutting down the BSP server</li></ul></h5></section>
+<section>
+  <h2>
+    Server lifetime</h2>
+  <h4>
+    <i>Request</i></h4>
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.40.1 (20161225.0304)
+ -->
+<!-- Title: X Pages: 1 -->
+<svg width="70%" height="30%"
+ viewBox="0.00 0.00 373.58 100.29" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 96.2918)">
+<title>X</title>
+<!-- Client -->
+<g id="node1" class="node">
+<title>Client</title>
+<ellipse fill="none" stroke="#000000" cx="46.1459" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="46.1459" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Client</text>
+</g>
+<!-- Server -->
+<g id="node2" class="node">
+<title>Server</title>
+<ellipse fill="none" stroke="#000000" cx="319.4377" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="319.4377" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Server</text>
+</g>
+<!-- Client&#45;&gt;Server -->
+<g id="edge1" class="edge">
+<title>Client&#45;&gt;Server</title>
+<path fill="none" stroke="#000000" d="M92.5061,-46.1459C139.522,-46.1459 212.3492,-46.1459 262.765,-46.1459"/>
+<polygon fill="#000000" stroke="#000000" points="262.8501,-49.646 272.8501,-46.1459 262.85,-42.646 262.8501,-49.646"/>
+<text text-anchor="middle" x="182.7918" y="-49.9459" font-family="Inconsolata" font-size="14.00" fill="#000000">build/initialize</text>
+</g>
+</g>
+</svg>
+  <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait InitializeBuildParams {
+  def rootUri: URI
+  def capabilities: BuildClientCapabilities
+}
+trait BuildClientCapabilities {
+    def languageIds: List[String]
+}</code></pre></section>
+<section>
+  <h2>
+    Server lifetime</h2>
+  <h4>
+    <i>Response</i></h4>
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.40.1 (20161225.0304)
+ -->
+<!-- Title: X Pages: 1 -->
+<svg width="70%" height="30%"
+ viewBox="0.00 0.00 346.58 100.29" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 96.2918)">
+<title>X</title>
+<!-- Server -->
+<g id="node1" class="node">
+<title>Server</title>
+<ellipse fill="none" stroke="#000000" cx="46.1459" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="46.1459" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Server</text>
+</g>
+<!-- Client -->
+<g id="node2" class="node">
+<title>Client</title>
+<ellipse fill="none" stroke="#000000" cx="292.4377" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="292.4377" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Client</text>
+</g>
+<!-- Server&#45;&gt;Client -->
+<g id="edge1" class="edge">
+<title>Server&#45;&gt;Client</title>
+<path fill="none" stroke="#000000" d="M92.4715,-46.1459C133.1075,-46.1459 192.3248,-46.1459 235.7738,-46.1459"/>
+<polygon fill="#000000" stroke="#000000" points="235.9018,-49.646 245.9018,-46.1459 235.9018,-42.646 235.9018,-49.646"/>
+<text text-anchor="middle" x="169.2918" y="-49.9459" font-family="Inconsolata" font-size="14.00" fill="#000000">response back</text>
+</g>
+</g>
+</svg>
+  <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait InitializeBuildResult {
+  capabilities: BuildServerCapabilities
+}
+
+trait BuildServerCapabilities {
+  compileProvider: Boolean
+  testProvider: Boolean
+  textDocumentBuildTargetsProvider: Boolean
+  dependencySourcesProvider: Boolean
+  buildTargetChangedProvider: Boolean
+}</code></pre></section>
+<section>
+  <h2>
+    Server lifetime</h2>
+  <h4>
+    <i>Notification</i></h4>
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.40.1 (20161225.0304)
+ -->
+<!-- Title: X Pages: 1 -->
+<svg width="70%" height="30%"
+ viewBox="0.00 0.00 382.58 100.29" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 96.2918)">
+<title>X</title>
+<!-- Client -->
+<g id="node1" class="node">
+<title>Client</title>
+<ellipse fill="none" stroke="#000000" cx="46.1459" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="46.1459" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Client</text>
+</g>
+<!-- Server -->
+<g id="node2" class="node">
+<title>Server</title>
+<ellipse fill="none" stroke="#000000" cx="328.4377" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="328.4377" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Server</text>
+</g>
+<!-- Client&#45;&gt;Server -->
+<g id="edge1" class="edge">
+<title>Client&#45;&gt;Server</title>
+<path fill="none" stroke="#000000" d="M92.4446,-46.1459C141.5692,-46.1459 219.2231,-46.1459 271.9225,-46.1459"/>
+<polygon fill="#000000" stroke="#000000" points="272.1138,-49.646 282.1138,-46.1459 272.1138,-42.646 272.1138,-49.646"/>
+<text text-anchor="middle" x="187.2918" y="-49.9459" font-family="Inconsolata" font-size="14.00" fill="#000000">build/initialized</text>
+</g>
+</g>
+</svg>
+  <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+    trait InitializedBuildParams {}</code></pre></section>
+<section>
+  <h2>
+    Server lifetime</h2>
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.40.1 (20161225.0304)
+ -->
+<!-- Title: X Pages: 1 -->
+<svg width="70%" height="30%"
+ viewBox="0.00 0.00 355.58 100.29" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 96.2918)">
+<title>X</title>
+<!-- Client -->
+<g id="node1" class="node">
+<title>Client</title>
+<ellipse fill="none" stroke="#000000" cx="46.1459" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="46.1459" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Client</text>
+</g>
+<!-- Server -->
+<g id="node2" class="node">
+<title>Server</title>
+<ellipse fill="none" stroke="#000000" cx="301.4377" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="301.4377" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Server</text>
+</g>
+<!-- Client&#45;&gt;Server -->
+<g id="edge1" class="edge">
+<title>Client&#45;&gt;Server</title>
+<path fill="none" stroke="#000000" d="M92.3773,-46.1459C135.258,-46.1459 199.1767,-46.1459 245.0403,-46.1459"/>
+<polygon fill="#000000" stroke="#000000" points="245.1196,-49.646 255.1196,-46.1459 245.1196,-42.646 245.1196,-49.646"/>
+<text text-anchor="middle" x="173.7918" y="-49.9459" font-family="Inconsolata" font-size="14.00" fill="#000000">build/shutdown</text>
+</g>
+</g>
+</svg>
+  <br />
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.40.1 (20161225.0304)
+ -->
+<!-- Title: X Pages: 1 -->
+<svg width="70%" height="30%"
+ viewBox="0.00 0.00 319.58 100.29" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 96.2918)">
+<title>X</title>
+<!-- Client -->
+<g id="node1" class="node">
+<title>Client</title>
+<ellipse fill="none" stroke="#000000" cx="46.1459" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="46.1459" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Client</text>
+</g>
+<!-- Server -->
+<g id="node2" class="node">
+<title>Server</title>
+<ellipse fill="none" stroke="#000000" cx="265.4377" cy="-46.1459" rx="46.2923" ry="46.2923"/>
+<text text-anchor="middle" x="265.4377" y="-42.4459" font-family="Inconsolata" font-size="14.00" fill="#000000">Server</text>
+</g>
+<!-- Client&#45;&gt;Server -->
+<g id="edge1" class="edge">
+<title>Client&#45;&gt;Server</title>
+<path fill="none" stroke="#000000" d="M92.3841,-46.1459C126.352,-46.1459 172.6899,-46.1459 208.8678,-46.1459"/>
+<polygon fill="#000000" stroke="#000000" points="209.2628,-49.646 219.2628,-46.1459 209.2627,-42.646 209.2628,-49.646"/>
+<text text-anchor="middle" x="155.7918" y="-49.9459" font-family="Inconsolata" font-size="14.00" fill="#000000">build/exit</text>
+</g>
+</g>
+</svg></section>
+<section>
+  <h3>
+    Core data structure</h3>
+  <h4>
+    A common notion of what a target is <br />
+    across different build tools and language servers</h4>
+  <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait BuildTarget {
+  def id: BuildTargetIdentifier
+  def displayName: Option[String]
+  def languageIds: List[String]
+  def data: Option[Json]
+}
+
+trait URI { def uri: String }
+trait BuildTargetIdentifier {
+  def uri: URI
+}</code></pre>
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.40.1 (20161225.0304)
+ -->
+<!-- Title: X Pages: 1 -->
+<svg width="70%" height="30%"
+ viewBox="0.00 0.00 482.00 44.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 40)">
+<title>X</title>
+<!-- Build tool module -->
+<g id="node1" class="node">
+<title>Build tool module</title>
+<polygon fill="none" stroke="#000000" points="170,-36 0,-36 0,0 170,0 170,-36"/>
+<text text-anchor="middle" x="85" y="-14.3" font-family="Inconsolata" font-size="14.00" fill="#000000">Build tool module</text>
+</g>
+<!-- Build target -->
+<g id="node2" class="node">
+<title>Build target</title>
+<polygon fill="none" stroke="#000000" points="331,-36 206,-36 206,0 331,0 331,-36"/>
+<text text-anchor="middle" x="268.5" y="-14.3" font-family="Inconsolata" font-size="14.00" fill="#000000">Build target</text>
+</g>
+<!-- Build tool module&#45;&gt;Build target -->
+<g id="edge1" class="edge">
+<title>Build tool module&#45;&gt;Build target</title>
+<path fill="none" stroke="#000000" d="M170.0354,-18C178.6333,-18 187.3103,-18 195.7622,-18"/>
+<polygon fill="#000000" stroke="#000000" points="195.9396,-21.5001 205.9395,-18 195.9395,-14.5001 195.9396,-21.5001"/>
+</g>
+<!-- IDE module -->
+<g id="node3" class="node">
+<title>IDE module</title>
+<polygon fill="none" stroke="#000000" points="474,-36 367,-36 367,0 474,0 474,-36"/>
+<text text-anchor="middle" x="420.5" y="-14.3" font-family="Inconsolata" font-size="14.00" fill="#000000">IDE module</text>
+</g>
+<!-- Build target&#45;&gt;IDE module -->
+<g id="edge2" class="edge">
+<title>Build target&#45;&gt;IDE module</title>
+<path fill="none" stroke="#000000" d="M331.2018,-18C339.5738,-18 348.1679,-18 356.5608,-18"/>
+<polygon fill="#000000" stroke="#000000" points="356.6699,-21.5001 366.6698,-18 356.6698,-14.5001 356.6699,-21.5001"/>
+</g>
+</g>
+</svg></section>
+<section>
+  <h3>
+    <code>workspace/buildTargets</code></h3>
+  <code>Client =&gt; Server</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+    trait WorkspaceBuildTargetsParams {}</code></pre>
+  <br />
+  <code>Server =&gt; Client</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait WorkspaceBuildTargetsResult {
+  def targets: List[BuildTarget]
+}</code></pre></section>
+<section>
+  <h3 style="font-size: 1.45em;">
+    <code>buildTarget/dependencySources</code></h3>
+  <code>Client =&gt; Server</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait DependencySourcesParams {
+  def targets: List[BuildTargetIdentifier]
+}</code></pre>
+  <br />
+  <code>Server =&gt; Client</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait DependencySourcesResult {
+  def items: List[DependencySourcesItem]
+}
+trait DependencySourcesItem {
+  def target: BuildTargetIdentifier
+  def sources: List[URI]
+}</code></pre></section>
+<section>
+  <h3>
+    <code>buildTarget/compile</code></h3>
+  <code>Client =&gt; Server</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait CompileParams {
+  def targets: List[BuildTargetIdentifier]
+  def arguments: List[Json]
+}</code></pre>
+  <br />
+  <code>Server =&gt; Client</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait CompileReport {
+  def items: List[CompileReportItem]
+}
+trait CompileReportItem {
+  def target: BuildTargetIdentifier
+  def errors: Long
+  def warnings: Long
+  def time: Option[Long]
+  def linesOfCode: Option[Long]
+}</code></pre></section>
+<section>
+  <h3>
+    <code>buildTarget/test</code></h3>
+  <code>Client =&gt; Server</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait TestParams {
+  def targets: List[BuildTargetIdentifier]
+  def arguments: List[Json]
+}</code></pre>
+  <br />
+  <code>Server =&gt; Client</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait TestReport {
+  def items: List[TestReportItem]
+}
+trait TestReportItem {
+  def target: BuildTargetIdentifier
+  def compileReport: Option[CompileReportItem]
+  def passed: Long
+  def failed: Long
+  def ignored: Long
+  def time: Option[Long]
+}</code></pre></section>
+<section>
+  <h3>
+    Other BSP methods</h3>
+  <h4>
+    Not covered in this presentation,<br />
+    but present in the spec.</h4>
+  <br />
+  <ul>
+    <li>
+      <code>buildTarget/didChange</code></li>
+    <li>
+      <code>buildTarget/dependencyResources</code></li>
+    <li>
+      <code>buildTarget/textDocuments</code></li>
+    <li>
+      <code>textDocument/buildTargets</code></li></ul></section>
+<section>
+  <img style="border: none; width: 30%; box-shadow: none;" src="img/emoji-thinking.png" />
+  <br />
+  <br />
+  <h4>
+    So... is BSP language agnostic?</h4>
+  <h3 class="fragment">
+    
+    <strong>Yes!</strong></h3></section>
+<section>
+  <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Generated by graphviz version 2.40.1 (20161225.0304)
+ -->
+<!-- Title: X Pages: 1 -->
+<svg width="100%" height="30%"
+ viewBox="0.00 0.00 770.00 116.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 112)">
+<title>X</title>
+<!-- Scala extension -->
+<g id="node1" class="node">
+<title>Scala extension</title>
+<polygon fill="none" stroke="#000000" points="152,-108 0,-108 0,-72 152,-72 152,-108"/>
+<text text-anchor="middle" x="76" y="-86.3" font-family="Inconsolata" font-size="14.00" fill="#000000">Scala extension</text>
+</g>
+<!-- BSP Core -->
+<g id="node2" class="node">
+<title>BSP Core</title>
+<polygon fill="none" stroke="#000000" points="447.5,-36 358.5,-36 358.5,0 447.5,0 447.5,-36"/>
+<text text-anchor="middle" x="403" y="-14.3" font-family="Inconsolata" font-size="14.00" fill="#000000">BSP Core</text>
+</g>
+<!-- Scala extension&#45;&gt;BSP Core -->
+<g id="edge1" class="edge">
+<title>Scala extension&#45;&gt;BSP Core</title>
+<path fill="none" stroke="#000000" d="M152.2543,-73.2101C212.3576,-59.9763 294.7059,-41.8446 348.3709,-30.0284"/>
+<polygon fill="#000000" stroke="#000000" points="349.3624,-33.394 358.3758,-27.8255 347.8571,-26.5578 349.3624,-33.394"/>
+</g>
+<!-- Java extension -->
+<g id="node3" class="node">
+<title>Java extension</title>
+<polygon fill="none" stroke="#000000" points="313.5,-108 170.5,-108 170.5,-72 313.5,-72 313.5,-108"/>
+<text text-anchor="middle" x="242" y="-86.3" font-family="Inconsolata" font-size="14.00" fill="#000000">Java extension</text>
+</g>
+<!-- Java extension&#45;&gt;BSP Core -->
+<g id="edge2" class="edge">
+<title>Java extension&#45;&gt;BSP Core</title>
+<path fill="none" stroke="#000000" d="M282.6271,-71.8314C304.1599,-62.2018 330.7849,-50.295 353.5152,-40.1299"/>
+<polygon fill="#000000" stroke="#000000" points="354.9652,-43.3155 362.665,-36.038 352.1074,-36.9254 354.9652,-43.3155"/>
+</g>
+<!-- Rust extension -->
+<g id="node4" class="node">
+<title>Rust extension</title>
+<polygon fill="none" stroke="#000000" points="474.5,-108 331.5,-108 331.5,-72 474.5,-72 474.5,-108"/>
+<text text-anchor="middle" x="403" y="-86.3" font-family="Inconsolata" font-size="14.00" fill="#000000">Rust extension</text>
+</g>
+<!-- Rust extension&#45;&gt;BSP Core -->
+<g id="edge3" class="edge">
+<title>Rust extension&#45;&gt;BSP Core</title>
+<path fill="none" stroke="#000000" d="M403,-71.8314C403,-64.131 403,-54.9743 403,-46.4166"/>
+<polygon fill="#000000" stroke="#000000" points="406.5001,-46.4132 403,-36.4133 399.5001,-46.4133 406.5001,-46.4132"/>
+</g>
+<!-- Javascript extension -->
+<g id="node5" class="node">
+<title>Javascript extension</title>
+<polygon fill="none" stroke="#000000" points="689.5,-108 492.5,-108 492.5,-72 689.5,-72 689.5,-108"/>
+<text text-anchor="middle" x="591" y="-86.3" font-family="Inconsolata" font-size="14.00" fill="#000000">Javascript extension</text>
+</g>
+<!-- Javascript extension&#45;&gt;BSP Core -->
+<g id="edge4" class="edge">
+<title>Javascript extension&#45;&gt;BSP Core</title>
+<path fill="none" stroke="#000000" d="M543.5597,-71.8314C517.1903,-61.7325 484.2812,-49.129 456.9364,-38.6565"/>
+<polygon fill="#000000" stroke="#000000" points="458.1065,-35.3568 447.5162,-35.0487 455.6029,-41.8938 458.1065,-35.3568"/>
+</g>
+<!-- ... -->
+<g id="node6" class="node">
+<title>...</title>
+<polygon fill="none" stroke="#000000" points="762,-108 708,-108 708,-72 762,-72 762,-108"/>
+<text text-anchor="middle" x="735" y="-86.3" font-family="Inconsolata" font-size="14.00" fill="#000000">...</text>
+</g>
+<!-- ...&#45;&gt;BSP Core -->
+<g id="edge5" class="edge">
+<title>...&#45;&gt;BSP Core</title>
+<path fill="none" stroke="#000000" d="M707.8252,-75.4145C704.894,-74.1435 701.9165,-72.9731 699,-72 617.2613,-44.7268 517.961,-30.1803 457.6695,-23.2832"/>
+<polygon fill="#000000" stroke="#000000" points="457.9344,-19.7911 447.6083,-22.162 457.1591,-26.748 457.9344,-19.7911"/>
+</g>
+</g>
+</svg>
+  <h3>
+    Meet language extensions</h3>
+  <h4>
+    Extensions formalize language-specific metadata, like:</h4>
+  <ul>
+    <li>
+      Which standard library to use.</li>
+    <li>
+      Which platform a language runs on.</li>
+    <li>
+      Which compilation flags are enabled.</li></ul></section>
+<section>
+  <h3>
+    Scala extension</h3>
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait ScalaBuildTarget {
+  def scalaOrganization: String
+  def scalaCompiler: String
+  def scalaVersion: String
+  def scalaBinaryVersion: String
+  def platform: ScalaPlatform
+}
+
+object ScalaPlatform {
+  val JVM = 1
+  val JS = 2
+  val Native = 3
+}</code></pre></section>
+<section>
+  <h3>
+    <code>buildTarget/scalacOptions</code></h3>
+  <code>Client =&gt; Server</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait ScalacOptionsParams {
+  def targets: List[BuildTargetIdentifier]
+}</code></pre>
+  <br />
+  <code>Server =&gt; Client</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait ScalacOptionsResult {
+  def items: List[ScalcOptionItem]
+}
+
+trait ScalacOptionsItem {
+    def target: BuildTargetIdentifier
+    def options: List[String]
+    def classpath: List[String]
+    def classDirectory: String
+}</code></pre></section>
+<section>
+  <h3>
+    <code>buildTarget/scalaTestClasses</code></h3>
+  <code>Client =&gt; Server</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait ScalaTestClassesParams {
+  def targets: List[BuildTargetIdentifier]
+}</code></pre>
+  <br />
+  <code>Server =&gt; Client</code> <br />
+  <pre style="font-size: 0.56em; margin: 0 auto; max-width: 700px;"><code class="hljs .github-gist github-gist scala" style="min-width: 300px" contenteditable="contenteditable" data-trim="data-trim">
+trait ScalaTestClassesResult {
+  def items: List[ScalaTestClassesItem]
+}
+trait ScalaTestClassesItem {
+    def target: BuildTargetIdentifier
+    def classes: List[String]
+}</code></pre></section>
+<section>
+  <h2>
+    On the roadmap</h2>
+  <br />
+  <ul>
+    <li>
+      Add BSP method for file watching.</li>
+    <li>
+      Add compile progress notifications.</li>
+    <li>
+      Add BSP <code>buildTarget/run</code>.</li>
+    <li>
+      Enable remote compilation.
+      <ul class="fragment">
+        
+        <li>
+          How do we handle repository state?
+            <ul>
+              <li>
+                Pass in diffs like LSP does.</li>
+              <li>
+                Relay repo synchronization to third-party.</li></ul></li></ul></li></ul></section>
+<section>
+  <h2>
+    On the roadmap</h2>
+  <br />
+  <ul>
+    <li>
+      On the lookout for feedback
+      <ul>
+        <li>
+          <a href="https://github.com/scalacenter/bsp">scalacenter/bsp</a> <br /></li></ul></li>
+    <li>
+      Formal proposal to STP-WG</li>
+    <li>
+      Scala/Scala.js-based client integrations:
+      <ul>
+        <li>
+          <code>vim</code></li>
+        <li>
+          <code>vscode</code></li>
+        <li>
+          <code>sublime/atom</code></li></ul></li></ul></section>
+<section>
+  <h2>
+    IntelliJ integration</h2></section>
+<section style="text-align: left;">
+  
+  <h1 class="fragment">
+    
+    Thanks.</h1>
+  <br />
+  <ul>
+    <li>
+      Do you want to learn more?
+      <ul>
+        <li>
+          Come talk to us!</li>
+        <li>
+          Help improve the spec in <a href="https://github.com/scalacenter/bsp">scalacenter/bsp</a> <br /></li></ul></li>
+    <li>
+      <a href="https://gitter.im/scalacenter/bloop">Chat on Bloop's Gitter.</a> <br /></li>
+    <li>
+      <a href="https://gitter.im/Jetbrains/intellij-scala">Chat on intellij-scala's Gitter.</a> <br /></li></ul></section>
+</div></div>
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+  <style>
+    body:after {
+      content: url(img/scalacenter-jetbrains.png);
+      position: fixed;
+      top: 3.9em;
+      right: 3.9em;
+      box-shadow: none;
+    }
+  </style>
+
+		<script>
+			// More info https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				slideNumber: true,
+				controls: false,
+				progress: true,
+				history: true,
+				center: true,
+				transition: 'none', // none/fade/slide/convex/concave/zoom
+				// More info https://github.com/hakimel/reveal.js#dependencies
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+		</script>
+
+    </body></html>
