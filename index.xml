@@ -6,10 +6,21 @@
     <description>Recent content on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Tue, 28 Mar 2017 19:28:49 +0200</lastBuildDate>
+    <lastBuildDate>Thu, 19 Oct 2017 23:29:12 +0200</lastBuildDate>
     
 	<atom:link href="https://jvican.github.io/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>How often do we change our sbt builds</title>
+      <link>https://jvican.github.io/post/git-sbt-analysis/</link>
+      <pubDate>Thu, 19 Oct 2017 23:29:12 +0200</pubDate>
+      
+      <guid>https://jvican.github.io/post/git-sbt-analysis/</guid>
+      <description>I spend a lot of time thinking about build tools and popular setups, and what changes are more likely to impact developers positively. In one of these ramblings, one question popped up: &amp;ldquo;How often do we change our builds?&amp;rdquo;
+It&amp;rsquo;s not easier to answer this question, data on the topic is scarce. So I challenged myself to come up with some data to satisfy my curiosity.
+Next I show some of the data I collected from Scala projects using sbt, the most popular Scala build tool.</description>
+    </item>
     
     <item>
       <title>About</title>
