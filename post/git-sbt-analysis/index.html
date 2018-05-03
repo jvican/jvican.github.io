@@ -50,7 +50,7 @@
 
 <meta itemprop="datePublished" content="2017-10-19T23:29:12&#43;02:00" />
 <meta itemprop="dateModified" content="2017-10-19T23:29:12&#43;02:00" />
-<meta itemprop="wordCount" content="709">
+<meta itemprop="wordCount" content="688">
 
 
 
@@ -154,7 +154,7 @@ echo &quot;Detected changes in branch $BRANCH is $count&quot;
 echo &quot;The percentage of commits that modify sbt build files is $PERCENTAGE&quot;
 </code></pre>
 
-<p>You can check or download the script in
+<p>You can check or download the script from this
 <a href="https://gist.github.com/jvican/b163ce76d8d6c3da4e6b8bc3036ca18e">Gist</a> too.</p>
 
 <h3 id="disclaimer">Disclaimer</h3>
@@ -189,12 +189,11 @@ you have a good reason at being mad at your build tool if it&rsquo;s not fast en
 
 <p>The builds of these projects are all complex and sbt is not quite good yet at
 providing fast reload times (not even speaking of compilation times), so I
-think it&rsquo;s fair to say that modification to a build slow down developers
-significantly. Personally, what I find most disturbing is my break of focus
-when I reload my build to pick up changes.</p>
+think it&rsquo;s fair to say that modifications to the build slow down developers
+significantly.</p>
 
 <p>I don&rsquo;t have any particular advice for maintainers of such projects except
-for identifying why so many changes to the build are required and trying to
+for identifying why so many build changes are required and trying to
 outsource them to external tools. Most of the build-related problems can be
 solved outside of sbt.</p>
 

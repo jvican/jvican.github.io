@@ -65,7 +65,7 @@ echo "Detected changes in branch $BRANCH is $count"
 echo "The percentage of commits that modify sbt build files is $PERCENTAGE"
 ```
 
-You can check or download the script in
+You can check or download the script from this
 [Gist](https://gist.github.com/jvican/b163ce76d8d6c3da4e6b8bc3036ca18e) too.
 
 ### Disclaimer
@@ -100,12 +100,11 @@ you have a good reason at being mad at your build tool if it's not fast enough.
 
 The builds of these projects are all complex and sbt is not quite good yet at
 providing fast reload times (not even speaking of compilation times), so I
-think it's fair to say that modification to a build slow down developers
-significantly. Personally, what I find most disturbing is my break of focus
-when I reload my build to pick up changes.
+think it's fair to say that modifications to the build slow down developers
+significantly.
 
 I don't have any particular advice for maintainers of such projects except
-for identifying why so many changes to the build are required and trying to
+for identifying why so many build changes are required and trying to
 outsource them to external tools. Most of the build-related problems can be
 solved outside of sbt.
 
