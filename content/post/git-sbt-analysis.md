@@ -116,7 +116,7 @@ don't pay too much attention to it.
 
 ### A note on the variety of projects
 
-As these projects are all medium to large scale sampled from the Scala
-community and my hard drive. I'd grant any observation about a bias towards
+These projects are all medium-to-large scale sampled from the Scala community
+and my hard drive. I'd grant any observation about a bias towards
 tooling-related projects (though I've tried hard to add many libraries and
 applications too, like `guardian/frontend` and `ornicar/lila`).
