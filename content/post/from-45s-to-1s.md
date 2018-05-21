@@ -441,8 +441,8 @@ worry, you haven't done anything wrong.
 ```
 ```
 
-The reason for this bump is that loading up a compiler plugin has a minimal
-overhead because of [dynamic plugin
+Using a compiler plugin has a compilation overhead, so this behaviour is
+expected. The cost is due to [dynamic plugin
 classloading](https://github.com/scala/scala/pull/6314) and the cost of the
 profiling itself. There are some solutions to this, but let's leave that to
 another blog post.
@@ -456,8 +456,9 @@ data.
 
 ##### Learn to generate a flamegraph
 
-To generate a flamegraph clone
-[brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph), and then run:
+To generate a flamegraph, clone
+[brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph), and
+then run the following script in the repository:
 
 ```bash
 ./flamegraph.pl --countname="ms" \
@@ -465,15 +466,65 @@ To generate a flamegraph clone
                 $PATH_TO_FLAMEGRAPH_PLUGIN_DATA > bloop-profile-initial.svg
 ```
 
+You can then visualize it with `$BROWSER bloop-profile-initial.svg`.
+
 ---
 
-After you're all set up, you'll then get an `svg` file that looks like this:
+After we're all set up, we'll then get an `svg` file that looks like this:
 
-{{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph" >}}
+{{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `fronten`" >}}
 
 (The flamegraph is shown as an image but it's an svg. Open the image in a new
 tab to be able to hover on every stack, search through the stack entries and
 check the compilation times of every box.)
+
+What a beautiful graph. We finally have a visual of all the implicit searches
+our program is doing, and how their dependencies look like.
+
+Before we keep fiddling with the graph, let's learn about common implicit and
+macro usage patterns and which kind of inefficiencies we're after.
+
+#### Type derivation and its dangers
+
+Type derivation is a process that synthesizes types (usually, typeclasses)
+for other types. The process can be manual (you defined an `Encoder` for
+every node of your GADT) or automatic (the `Encoder` derivation happens at
+compile time via macros and implicits, i.e. the compiler generates the code
+for you).
+
+There are two families of automatic type derivation:
+
+* Automatic: all the type dependencies of the type you derive will be
+  materialized by the compiler.
+* Semi-automatic: the type dependencies of the type you derive need to exist
+  for the derivation to succeed.
+
+Type derivation is popular in the Scala community. A few libraries (for
+example, `scalatest`) define their own macros to synthesize type classes. All
+the other libraries use Shapeless to guide the type derivation on the library
+side, which removes the need for extra macros.
+
+Shapeless is a Scala compile-time framework that defines the basic building
+blocks to make computations at the typelevel. These computations are
+inductive and happen during compilation time via implicit search. Shapeless
+is popular for automatic type derivation, so when the implicit search needs
+an instance that doesn't exist in the scope, macros materialize it.
+
+The compilation of `frontend` requires type derivation via `case-app`, which
+depends on Shapeless. `case-app` derives a `caseapp.core.Parser` for a GADT
+defining the commands and parameters that your command line interface
+accepts. This derivation relies on the `Lazy`, `Strict`, `Tagged` and
+`LabelledGeneric` macros, as well as other foundation blocks like `Coproduct`
+and `HList`.
+
+These are normal dependencies of any library that uses Shapeless to guide
+type derivation.
+
+The most common inefficiency in this kind of program is repeated
+materialization of implicit instances via macros. It usually happens in any
+library that uses automatic type derivation. So if you're using Shapeless for
+anything (and do check your classpath, you never know), there is some hope
+you can make some cuts in your compile times.
 
 {{< figure src="/data/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}
 {{< figure src="/data/bloop-profile-2.svg" title="Final flamegraph" >}}
