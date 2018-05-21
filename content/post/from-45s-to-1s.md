@@ -92,11 +92,12 @@ it should be compiled in about 4 seconds.
 [`case-app`](https://github.com/alexarchambault/case-app/), a command-line
 parsing library for Scala that uses
 [Shapeless](https://github.com/milessabin/shapeless). In our case, the reason
-why the compilation takes 60 seconds.
+why the compilation takes 30 seconds.
 
-Waiting 60 seconds for a change to take effect (even under incremental
-compilation) is a no-go. Long waits kill my productivity and get me out of
-the zone, which affects my decision-making process a big deal.
+Waiting 30 seconds for a change to take effect (even under incremental
+compilation) is a no-go. It may not seem much, but such a long waits kill my
+productivity and get me out of the zone, which affects my decision-making
+process a big deal.
 
 In the past, I've also noticed that a slow workflow discourages me from
 adding complete test suites (the more tests I add the more I need to wait to
@@ -155,19 +156,23 @@ to get a stable hot compiler. After that, we'll do incremental compilation in
 the files we change. I've done this for convenience; you should be able to
 replicate the results with full compilation.
 
-#### Start compilation on file change
+#### Warm up the compiler
 
 ```bash
-bloop compile frontend -w
+for i in {1..10}; do
+  echo "Warming up the compiler; iteration $i"
+  bloop compile frontend -w
+done
 ```
-
-Now, let's get back to the theory.
 
 ## The analysis
 
 The first step to analyze your compilation times is that you set your
-intuitions aside. Before validating them, we're going to look at the raw
-compiler data and let ourselves take decisions from there.
+intuitions aside. We're going to look at the raw compiler data with fresh
+eyes and see where that leads us.
+
+If you try to validate previously-formed assumptions, it's likely you'll be
+misleaded by the data. I've been there, so don't fall into the same trap.
 
 Profiling compilation times requires dedicated tools. There isn't much we can
 get from using profilers like Yourkit or Java Flight Recorder because they show
@@ -206,22 +211,150 @@ Scala programs.
 
 ---
 
-Compiler statistics have both timers and counters that record data about the
-most expensive compiler operations like subtype checks, finding members,
-implicit searches, macro expansion, class file loading, et cetera. This data
-is the perfect starting point to have a high-level idea of what's going on.
+Compiler statistics have both timers and counters that record data about
+expensive compiler operations like subtype checks, finding members, implicit
+searches, macro expansion, class file loading, et cetera. This data is the
+perfect starting point to have a high-level idea of what's going on.
 
 #### Setting statistics up
 
 Enable compiler statistics by adding the `-Ystatistics` compiler flag to the
-project you want to benchmark. *Note that you need to use 2.12.5 or above*.
+project you want to benchmark. *Note that you need to use Scala 2.12.5 or
+above*. I **highly** recommend using the latest version. At the moment of
+this writing, that's `2.12.6`.
 
 Add the compiler flag to the field `options` inside the
 `.bloop/frontend.json` json configuration file. When you save, Bloop will
-automatically pick up your changes.
+automatically pick up your changes and add the compiler option without the
+need of a `reload`.
 
-Let's now compile `frontend` with `bloop compile frontend -w` and have a look
-at the data.
+Run `bloop compile frontend -w --reporter scalac` (we use the default scalac
+reporter for clarity) and have a look at the data. The output of the
+compilation will be [similar to this log](/data/bloop-compile-stats-0.txt).
+Check the end of it. You should see a report of compilation time spent per
+phase.
+
+```
+*** Cumulative timers for phases
+#total compile time      : 1 spans, ()32545.975ms
+  parser                 : 1 spans, ()65.017ms (0.2%)
+  namer                  : 1 spans, ()42.827ms (0.1%)
+  packageobjects         : 1 spans, ()0.187ms (0.0%)
+  typer                  : 1 spans, ()27432.596ms (84.3%)
+  patmat                 : 1 spans, ()1169.028ms (3.6%)
+  superaccessors         : 1 spans, ()36.02ms (0.1%)
+  extmethods             : 1 spans, ()3.548ms (0.0%)
+  pickler                : 1 spans, ()9.449ms (0.0%)
+  xsbt-api               : 1 spans, ()159.278ms (0.5%)
+  xsbt-dependency        : 1 spans, ()94.846ms (0.3%)
+  refchecks              : 1 spans, ()627.633ms (1.9%)
+  uncurry                : 1 spans, ()408.305ms (1.3%)
+  fields                 : 1 spans, ()414.151ms (1.3%)
+  tailcalls              : 1 spans, ()38.455ms (0.1%)
+  specialize             : 1 spans, ()184.562ms (0.6%)
+  explicitouter          : 1 spans, ()80.488ms (0.2%)
+  erasure                : 1 spans, ()624.472ms (1.9%)
+  posterasure            : 1 spans, ()63.249ms (0.2%)
+  lambdalift             : 1 spans, ()125.944ms (0.4%)
+  constructors           : 1 spans, ()47.109ms (0.1%)
+  flatten                : 1 spans, ()46.527ms (0.1%)
+  mixin                  : 1 spans, ()59.808ms (0.2%)
+  cleanup                : 1 spans, ()42.336ms (0.1%)
+  delambdafy             : 1 spans, ()47.771ms (0.1%)
+  jvm                    : 1 spans, ()714.008ms (2.2%)
+  xsbt-analyzer          : 1 spans, ()5.175ms (0.0%)
+```
+
+The report suggests that about **84.3% of the compilation time** is spent on
+typer. This is an unusual high. Typechecking a normal project is expected to
+take around 50-60% of the whole compilation time.
+
+If you have a higher number than the average, then it most likely means
+you're pushing the typechecker hard in some unexpected way, and you should
+keep on the exploration.
+
+### Walking into the lion's den
+
+Now that the data signals a bottleneck in typer, let's keep our statistics
+log short and enable `-Ystatistics:typer`. That will report only statistics
+produced during typing.
+
+We then run compilation again. The logs contain information about timers and
+counters of several places in the typechecker. These timers and counters help
+you know how you're stressing the compiler.
+
+If the compilation of your program requires an unusual amount of subtype
+checks, `time spent in <:<` will be high. There are no normal values for
+subtype checks --the time spent here depends on a lot of factors-- but an
+abnormal value would be anything close to 15% of the whole typechecking time.
+
+The first thing we notice when studying the logs is that typechecking
+`frontend` takes 28 seconds. We also see some unusual values for the
+following counters:
+
+```json
+#class symbols             : 1842246
+#typechecked identifiers   : 134734
+#typechecked selections    : 225020
+#typechecked applications  : 82421
+```
+
+The Scala compiler creates almost two million class symbols (!) and
+typechecks 134734 identifiers, almost the double of selections and half of
+applications. Those are pretty high values. That begs the question: why are
+we creating so many classes?
+
+Next, we check time spent in common typechecking operations:
+
+```
+time spent in lubs         : 67 spans, ()63.194ms (0.2%) aggregate, 16.29ms (0.1%) specific
+time spent in <:<          : 1548620 spans, ()1791.068ms (6.5%) aggregate, 1583.94ms (5.8%) specific
+time spent in findmember   : 873498 spans, ()638.792ms (2.3%) aggregate, 592.663ms (2.2%) specific
+time spent in findmembers  : 0 spans, ()0.0ms (0.0%) aggregate, 0.0ms (0.0%) specific
+time spent in asSeenFrom   : 2541823 spans, ()1299.199ms (4.7%) aggregate, 1238.814ms (4.5%) specific
+```
+
+`time spent in lubs` should be high whenever you use lots of pattern matching
+or if expressions, and the compiler needs to lub (find the common type of a
+sequence of types -- also called finding "least upper bound" among some
+types). Eugene Yokota explains it well [in this well-aged blog
+post](http://eed3si9n.com/stricter-scala-with-ynolub).
+
+`time spent in findmember` and it's sister `time spent in findmembers` should
+be up in the profiles whenever you have deep class hierarchies and lots of
+overridden methods.
+
+`time spent in asSeenFrom` is high whenever your code makes a heavy use of
+dependent types, type projections or abstract types in a more general way.
+
+For most of the cases, these timers are unlikely to be high when typechecking
+your program. If they are, try to figure out why and file a ticket in
+`scala/bug` so that either I or the Scala team can look into it.
+
+### The troublemaker
+
+The reality is, most of the projects that suffer from compilation times abuse
+or misuse either macros (inefficient macro implementations that do a lot of
+`typecheck`/`untypecheck`), implicit searches (and misplaced implicit
+instances) or a combination of both (as we'll see in a bit).
+
+It's difficult to miss how long macro expansion and implicit searches take in
+the compilation of `frontend`, and how the values seem to be highly
+correlated.
+
+```
+time spent in implicits       : 33609 spans, ()26808.491ms (97.7%)
+  successful in scope         : 346 spans, ()71.931ms (0.3%)
+  failed in scope             : 33263 spans, ()3195.452ms (11.6%)
+  successful of type          : 18286 spans, ()26730.255ms (97.4%)
+  failed of type              : 14977 spans, ()17370.235ms (63.3%)
+  assembling parts            : 18647 spans, ()374.562ms (1.4%)
+  matchesPT                   : 136322 spans, ()505.763ms (1.8%)
+time spent in macroExpand  : 44445 spans, ()26451.132ms (96.4%)
+```
+
+This is a red flag. We expand around 44500 macro expansions (!) and spend
+almost the totality of the macro expansion time searching for implicits.
 
 {{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph" >}}
 {{< figure src="/data/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}

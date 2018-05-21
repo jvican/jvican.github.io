@@ -1,238 +1,94 @@
-Compiling 44 Scala sources to /data/rw/code/scala/loop/.bloop/frontend/scala-2.12/classes ...
- [E-1]   xsbt-analyzer               : 1 spans, ()10.015ms (0.0%)
- [E-1]   jvm                         : 1 spans, ()1328.891ms (2.2%)
- [E-1]   delambdafy                  : 1 spans, ()113.983ms (0.2%)
- [E-1]   cleanup                     : 1 spans, ()102.961ms (0.2%)
- [E-1]   mixin                       : 1 spans, ()74.465ms (0.1%)
- [E-1]   flatten                     : 1 spans, ()72.821ms (0.1%)
- [E-1]   constructors                : 1 spans, ()97.14ms (0.2%)
- [E-1]   lambdalift                  : 1 spans, ()233.558ms (0.4%)
- [E-1]   posterasure                 : 1 spans, ()84.678ms (0.1%)
- [E-1]   erasure                     : 1 spans, ()1175.588ms (2.0%)
- [E-1]   explicitouter               : 1 spans, ()227.53ms (0.4%)
- [E-1]   specialize                  : 1 spans, ()273.456ms (0.5%)
- [E-1]   tailcalls                   : 1 spans, ()103.738ms (0.2%)
- [E-1]   fields                      : 1 spans, ()769.873ms (1.3%)
- [E-1]   uncurry                     : 1 spans, ()659.177ms (1.1%)
- [E-1]   refchecks                   : 1 spans, ()823.479ms (1.4%)
- [E-1]   xsbt-dependency             : 1 spans, ()94.728ms (0.2%)
- [E-1]   xsbt-api                    : 1 spans, ()178.777ms (0.3%)
- [E-1]   pickler                     : 1 spans, ()13.04ms (0.0%)
- [E-1]   extmethods                  : 1 spans, ()3.202ms (0.0%)
- [E-1]   superaccessors              : 1 spans, ()84.24ms (0.1%)
- [E-1]   patmat                      : 1 spans, ()2074.278ms (3.4%)
- [E-1]   typer                       : 1 spans, ()50327.877ms (83.6%)
- [E-1]   packageobjects              : 1 spans, ()0.156ms (0.0%)
- [E-1]   namer                       : 1 spans, ()25.381ms (0.0%)
- [E-1]   parser                      : 1 spans, ()67.292ms (0.1%)
- [E-1] #total compile time           : 1 spans, ()60189.934ms
- [E-1] *** Cumulative timers for phases
- [E-1] Writing graph to /data/rw/code/scala/loop/.bloop/frontend/scala-2.12/classes/META-INF/profiledb/graphs/implicit-searches-1526898063146.flamegraph
- [E-1] *** Cumulative statistics at phase typer
- [E-1] #created tree nodes           : 22586
- [E-1] #typechecked identifiers      : 171475
- [E-1] #created scopes               : 3681924
- [E-1] #created tree nodes           : 4338837
- [E-1] #all lubs/glbs                : 130961
- [E-1] classfile writing             : 813 spans, ()84.03ms (6.3%)
- [E-1] intra-method optimizations    : 787 spans, ()96.484ms (7.3%)
- [E-1] code generation               : 44 spans, ()841.369ms (63.3%)
- [E-1] bcode initialization          : 1 spans, ()1.198ms (0.1%)
- [E-1] time in backend               : 1 spans, ()1328.881ms
- [E-1] time spent in scope lookup    : 4671143 spans, ()501.627ms
- [E-1]   of which in implicit        : 815222 (81.4%)
- [E-1]   of which in failed          : 12 (0.0%)
- [E-1]   of which multiple overloaded: 6074 (0.6%)
- [E-1]   of which not found          : 256891 (25.7%)
- [E-1] #findMember ops               : 1001472
- [E-1]   of which in implicit        : 1512852 (55.5%)
- [E-1]   of which in failed          : 24804 (0.9%)
- [E-1] #subtype ops                  : 2727753
- [E-1] #unique types                 : 305776
- [E-1] #typechecked applications     : 141144
- [E-1]   of which for singletons     : 22 (0.0%)
- [E-1]   of which for typerefs       : 89863 (71.1%)
- [E-1]   of which for compound types : 34016 (26.9%)
- [E-1] avg base type seq length      : 5.8
- [E-1] #base type seqs               : 126344
- [E-1] #class symbols                : 1892227
- [E-1] precise time in macroExpand   : 44800 spans, ()48240.803ms
- [E-1]   of which in implicits       : 5493641 (89.2%)
- [E-1]   of which in failed          : 11 (0.0%)
- [E-1] #raw type creations           : 6159979
- [E-1] #toplevel lubs/glbs           : 125
- [E-1] #sametype ops                 : 2085105
- [E-1] #symbols                      : 6045020
- [E-1] #typechecked selections       : 372379
- [E-1] #type symbols                 : 5433351
- [E-1] time spent in scope population: 1798460 spans, ()116.919ms
- [E-1] *** Cumulative statistics at phase jvm
- [E-1] #typechecked identifiers      : 170818
- [E-1] #created scopes               : 3680931
- [E-1] #created tree nodes           : 4322039
- [E-1] #all lubs/glbs                : 130961
- [E-1] time spent in scope lookup    : 4653448 spans, ()496.955ms
- [E-1]   of which in implicit        : 815222 (81.9%)
- [E-1]   of which in failed          : 12 (0.0%)
- [E-1]   of which multiple overloaded: 5966 (0.6%)
- [E-1]   of which not found          : 256102 (25.7%)
- [E-1] #findMember ops               : 995727
- [E-1]   of which in implicit        : 1512852 (55.5%)
- [E-1]   of which in failed          : 24804 (0.9%)
- [E-1] #subtype ops                  : 2725320
- [E-1] #unique types                 : 304637
- [E-1] #typechecked applications     : 140347
- [E-1]   of which for singletons     : 22 (0.0%)
- [E-1]   of which for typerefs       : 89510 (71.4%)
- [E-1]   of which for compound types : 33427 (26.7%)
- [E-1] avg base type seq length      : 5.8
- [E-1] #base type seqs               : 125402
- [E-1] #class symbols                : 1892015
- [E-1] precise time in macroExpand   : 44800 spans, ()48240.803ms
- [E-1]   of which in implicits       : 5493641 (89.4%)
- [E-1]   of which in failed          : 11 (0.0%)
- [E-1] #raw type creations           : 6146717
- [E-1] #toplevel lubs/glbs           : 125
- [E-1] #sametype ops                 : 2083285
- [E-1] #symbols                      : 6040061
- [E-1] #typechecked selections       : 372265
- [E-1] #type symbols                 : 5432964
- [E-1] time spent in scope population: 1798420 spans, ()116.904ms
- [E-1] *** Cumulative statistics at phase cleanup
- [E-1] #typechecked identifiers      : 170611
- [E-1] #created scopes               : 3679849
- [E-1] #created tree nodes           : 4256476
- [E-1] #all lubs/glbs                : 130955
- [E-1] time spent in scope lookup    : 4618573 spans, ()491.964ms
- [E-1]   of which in implicit        : 815222 (82.2%)
- [E-1]   of which in failed          : 12 (0.0%)
- [E-1]   of which multiple overloaded: 5963 (0.6%)
- [E-1]   of which not found          : 255980 (25.8%)
- [E-1] #findMember ops               : 991812
- [E-1]   of which in implicit        : 1512852 (55.6%)
- [E-1]   of which in failed          : 24804 (0.9%)
- [E-1] #subtype ops                  : 2718922
- [E-1] #unique types                 : 302942
- [E-1] #typechecked applications     : 140284
- [E-1]   of which for singletons     : 22 (0.0%)
- [E-1]   of which for typerefs       : 89391 (71.9%)
- [E-1]   of which for compound types : 32529 (26.2%)
- [E-1] avg base type seq length      : 5.8
- [E-1] #base type seqs               : 124385
- [E-1] #class symbols                : 1892011
- [E-1] precise time in macroExpand   : 44800 spans, ()48240.803ms
- [E-1]   of which in implicits       : 5493641 (90.1%)
- [E-1]   of which in failed          : 11 (0.0%)
- [E-1] #raw type creations           : 6096475
- [E-1] #toplevel lubs/glbs           : 119
- [E-1] #sametype ops                 : 2083124
- [E-1] #symbols                      : 6029085
- [E-1] #typechecked selections       : 371931
- [E-1] #type symbols                 : 5432888
- [E-1] time spent in scope population: 1798352 spans, ()116.894ms
- [E-1] *** Cumulative statistics at phase erasure
- [E-1]   of which in unreachability  : 1224 spans, ()790.963ms (45.5%)
- [E-1]   of which in exhaustivity    : 1087 spans, ()360.752ms (20.7%)
- [E-1]   of which variable equality  : 3535 spans, ()228.551ms (13.1%)
- [E-1]   of which in CNF conversion  : 0 spans, ()0.0ms (0.0%)
- [E-1]   of which DPLL               : 1330 spans, ()21.48ms (1.2%)
- [E-1] time spent in patmat          : 1258 spans, ()1739.376ms
- [E-1] #typechecked identifiers      : 140774
- [E-1] #created scopes               : 3588414
- [E-1] #created tree nodes           : 4015700
- [E-1] #all lubs/glbs                : 130362
- [E-1] time spent in scope lookup    : 4433739 spans, ()474.236ms
- [E-1]   of which in implicit        : 815214 (91.5%)
- [E-1]   of which in failed          : 12 (0.0%)
- [E-1]   of which multiple overloaded: 3075 (0.3%)
- [E-1]   of which not found          : 176064 (19.8%)
- [E-1] #findMember ops               : 891133
- [E-1]   of which in implicit        : 1512835 (84.5%)
- [E-1]   of which in failed          : 24804 (1.4%)
- [E-1] #subtype ops                  : 1789633
- [E-1] #unique types                 : 238863
- [E-1] #typechecked applications     : 91423
- [E-1]   of which for singletons     : 22 (0.0%)
- [E-1]   of which for typerefs       : 85226 (74.2%)
- [E-1]   of which for compound types : 27200 (23.7%)
- [E-1] avg base type seq length      : 5.8
- [E-1] #base type seqs               : 114891
- [E-1] #class symbols                : 1858579
- [E-1] precise time in macroExpand   : 44799 spans, ()48240.299ms
- [E-1]   of which in implicits       : 5493606 (95.7%)
- [E-1]   of which in failed          : 11 (0.0%)
- [E-1] #raw type creations           : 5742496
- [E-1] #toplevel lubs/glbs           : 107
- [E-1] #sametype ops                 : 2037443
- [E-1] #symbols                      : 5887236
- [E-1] #typechecked selections       : 307423
- [E-1] #type symbols                 : 5370974
- [E-1] time spent in scope population: 1747898 spans, ()110.752ms
- [E-1] *** Cumulative statistics at phase patmat
- [E-1]   from macros                 : 33208 (98.0%)
- [E-1]   #implicit oftype hits       : 18431 (54.4%)
- [E-1]   #implicit inscope hits      : 350 (1.0%)
- [E-1]   #implicit improves cached   : 6351 (18.7%)
- [E-1]   #implicit improves tests    : 8455 (25.0%)
- [E-1]   #found                      : 19717 (58.2%)
- [E-1]   #typed                      : 39309 (116.0%)
- [E-1]   #matching                   : 39343 (116.1%)
- [E-1]   #plausibly compatible       : 39343 (116.1%)
- [E-1] #implicit searches            : 33883
- [E-1] #typechecked identifiers      : 135701
- [E-1] #created scopes               : 3580962
- [E-1] #created tree nodes           : 3829566
- [E-1] #all lubs/glbs                : 130322
- [E-1]   of which delayed macros     : 14915 (33.3%)
- [E-1]   of which failed macros      : 11082 (24.7%)
- [E-1] #macro expansions             : 44799
- [E-1] implicit cache hits           : 14638 (43.7%)
- [E-1] implicit cache accesses       : 33488
- [E-1] time spent in scope lookup    : 4362044 spans, ()467.18ms
- [E-1]   of which in implicit        : 815214 (92.7%)
- [E-1]   of which in failed          : 12 (0.0%)
- [E-1]   of which multiple overloaded: 2927 (0.3%)
- [E-1]   of which not found          : 167960 (19.1%)
- [E-1] #findMember ops               : 879866
- [E-1]   of which in implicit        : 1512835 (96.9%)
- [E-1]   of which in failed          : 24804 (1.6%)
- [E-1] #subtype ops                  : 1560688
- [E-1] #unique types                 : 384407
- [E-1] #typechecked applications     : 83039
- [E-1]   of which for singletons     : 22 (0.0%)
- [E-1]   of which for typerefs       : 84464 (74.3%)
- [E-1]   of which for compound types : 26744 (23.5%)
- [E-1] avg base type seq length      : 5.7
- [E-1] #base type seqs               : 113673
- [E-1] #class symbols                : 1857812
- [E-1] precise time in macroExpand   : 44799 spans, ()48240.299ms
- [E-1]   of which in implicits       : 5493606 (97.9%)
- [E-1]   of which in failed          : 11 (0.0%)
- [E-1] #raw type creations           : 5609894
- [E-1] #toplevel lubs/glbs           : 67
- [E-1] #sametype ops                 : 1987845
- [E-1] #symbols                      : 5875563
- [E-1] #typechecked selections       : 226780
- [E-1] #type symbols                 : 5370204
- [E-1] time spent in scope population: 1740697 spans, ()109.574ms
- [E-1] time spent in macroExpand     : 44799 spans, ()48237.646ms (95.8%)
- [E-1]   matchesPT                   : 137445 spans, ()576.478ms (1.1%)
- [E-1]   assembling parts            : 18850 spans, ()507.307ms (1.0%)
- [E-1]   failed of type              : 15102 spans, ()31499.017ms (62.6%)
- [E-1]   successful of type          : 18431 spans, ()48845.161ms (97.1%)
- [E-1]   failed in scope             : 33533 spans, ()3372.659ms (6.7%)
- [E-1]   successful in scope         : 350 spans, ()139.326ms (0.3%)
- [E-1] time spent in implicits       : 33883 spans, ()49033.533ms (97.4%)
- [E-1] time spent ref scanning       : 0 spans, ()0.0ms (0.0%)
- [E-1]   failed op=                  : 0 spans, ()0.0ms (0.0%)
- [E-1]   failed apply                : 1 spans, ()0.214ms (0.0%)
- [E-1] time spent in failed          : 6209 spans, ()853.095ms (1.7%)
- [E-1] time classfilereading         : 772 spans, ()199.56ms (0.4%)
- [E-1] time spent in baseClasses     : 9363 spans, ()71.543ms (0.1%) aggregate, 55.959ms (0.1%) specific
- [E-1] time spent in baseTypeSeq     : 111208 spans, ()701.934ms (1.4%) aggregate, 399.876ms (0.8%) specific
- [E-1] time spent in asSeenFrom      : 2564034 spans, ()1610.978ms (3.2%) aggregate, 1508.907ms (3.0%) specific
- [E-1] time spent in findmembers     : 0 spans, ()0.0ms (0.0%) aggregate, 0.0ms (0.0%) specific
- [E-1] time spent in findmember      : 879866 spans, ()793.173ms (1.6%) aggregate, 725.779ms (1.4%) specific
- [E-1] time spent in <:<             : 1560688 spans, ()2262.357ms (4.5%) aggregate, 1960.431ms (3.9%) specific
- [E-1] time spent in lubs            : 67 spans, ()96.051ms (0.2%) aggregate, 31.2ms (0.1%) specific
- [E-1] time spent typechecking       : 1 spans, ()50327.873ms
+Enabling statistics, measuring overhead = 25.995ns to 60.133ns per timer
+*** Cumulative statistics at phase typer
+time spent typechecking       : 1 spans, ()27432.591ms
+time spent in lubs            : 67 spans, ()63.194ms (0.2%) aggregate, 16.29ms (0.1%) specific
+time spent in <:<             : 1548620 spans, ()1791.068ms (6.5%) aggregate, 1583.94ms (5.8%) specific
+time spent in findmember      : 873498 spans, ()638.792ms (2.3%) aggregate, 592.663ms (2.2%) specific
+time spent in findmembers     : 0 spans, ()0.0ms (0.0%) aggregate, 0.0ms (0.0%) specific
+time spent in asSeenFrom      : 2541823 spans, ()1299.199ms (4.7%) aggregate, 1238.814ms (4.5%) specific
+time spent in baseTypeSeq     : 109495 spans, ()434.673ms (1.6%) aggregate, 249.762ms (0.9%) specific
+time spent in baseClasses     : 9197 spans, ()39.162ms (0.1%) aggregate, 30.423ms (0.1%) specific
+time classfilereading         : 772 spans, ()124.845ms (0.5%)
+time spent in failed          : 6155 spans, ()666.409ms (2.4%)
+  failed apply                : 1 spans, ()0.131ms (0.0%)
+  failed op=                  : 0 spans, ()0.0ms (0.0%)
+time spent ref scanning       : 0 spans, ()0.0ms (0.0%)
+time spent in implicits       : 33609 spans, ()26808.491ms (97.7%)
+  successful in scope         : 346 spans, ()71.931ms (0.3%)
+  failed in scope             : 33263 spans, ()3195.452ms (11.6%)
+  successful of type          : 18286 spans, ()26730.255ms (97.4%)
+  failed of type              : 14977 spans, ()17370.235ms (63.3%)
+  assembling parts            : 18647 spans, ()374.562ms (1.4%)
+  matchesPT                   : 136322 spans, ()505.763ms (1.8%)
+time spent in macroExpand     : 44445 spans, ()26451.132ms (96.4%)
+time spent in scope population: 1726073 spans, ()85.158ms
+#type symbols                 : 5325386
+#typechecked selections       : 225020
+#symbols                      : 5827196
+#sametype ops                 : 1983266
+#toplevel lubs/glbs           : 67
+#raw type creations           : 5561675
+  of which in failed          : 11 (0.0%)
+  of which in implicits       : 5445466 (97.9%)
+#class symbols                : 1842246
+#base type seqs               : 111936
+avg base type seq length      : 5.7
+  of which for compound types : 26420 (23.6%)
+  of which for typerefs       : 83075 (74.2%)
+  of which for singletons     : 22 (0.0%)
+#typechecked applications     : 82421
+#unique types                 : 585030
+#subtype ops                  : 1548620
+  of which in failed          : 24588 (1.6%)
+  of which in implicit        : 1500797 (96.9%)
+#findMember ops               : 873498
+  of which not found          : 166851 (19.1%)
+  of which multiple overloaded: 2907 (0.3%)
+  of which in failed          : 12 (0.0%)
+  of which in implicit        : 808900 (92.6%)
+time spent in scope lookup    : 4330014 spans, ()402.978ms
+implicit cache accesses       : 33218
+implicit cache hits           : 14571 (43.9%)
+#macro expansions             : 44445
+#all lubs/glbs                : 129333
+#created tree nodes           : 3800770
+#created scopes               : 3551040
+#typechecked identifiers      : 134734
+#implicit searches            : 33609
+  #plausibly compatible       : 39023 (116.1%)
+  #matching                   : 39023 (116.1%)
+  #typed                      : 38989 (116.0%)
+  #found                      : 19560 (58.2%)
+  #implicit improves tests    : 8397 (25.0%)
+  #implicit improves cached   : 6312 (18.8%)
+  #implicit inscope hits      : 346 (1.0%)
+  #implicit oftype hits       : 18286 (54.4%)
+*** Cumulative timers for phases
+#total compile time           : 1 spans, ()32545.975ms
+  parser                      : 1 spans, ()65.017ms (0.2%)
+  namer                       : 1 spans, ()42.827ms (0.1%)
+  packageobjects              : 1 spans, ()0.187ms (0.0%)
+  typer                       : 1 spans, ()27432.596ms (84.3%)
+  patmat                      : 1 spans, ()1169.028ms (3.6%)
+  superaccessors              : 1 spans, ()36.02ms (0.1%)
+  extmethods                  : 1 spans, ()3.548ms (0.0%)
+  pickler                     : 1 spans, ()9.449ms (0.0%)
+  xsbt-api                    : 1 spans, ()159.278ms (0.5%)
+  xsbt-dependency             : 1 spans, ()94.846ms (0.3%)
+  refchecks                   : 1 spans, ()627.633ms (1.9%)
+  uncurry                     : 1 spans, ()408.305ms (1.3%)
+  fields                      : 1 spans, ()414.151ms (1.3%)
+  tailcalls                   : 1 spans, ()38.455ms (0.1%)
+  specialize                  : 1 spans, ()184.562ms (0.6%)
+  explicitouter               : 1 spans, ()80.488ms (0.2%)
+  erasure                     : 1 spans, ()624.472ms (1.9%)
+  posterasure                 : 1 spans, ()63.249ms (0.2%)
+  lambdalift                  : 1 spans, ()125.944ms (0.4%)
+  constructors                : 1 spans, ()47.109ms (0.1%)
+  flatten                     : 1 spans, ()46.527ms (0.1%)
+  mixin                       : 1 spans, ()59.808ms (0.2%)
+  cleanup                     : 1 spans, ()42.336ms (0.1%)
+  delambdafy                  : 1 spans, ()47.771ms (0.1%)
+  jvm                         : 1 spans, ()714.008ms (2.2%)
+  xsbt-analyzer               : 1 spans, ()5.175ms (0.0%)
+Done compiling.
