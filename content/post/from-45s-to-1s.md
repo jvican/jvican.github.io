@@ -510,9 +510,9 @@ inductive and happen during compilation time via implicit search. Shapeless
 is popular for automatic type derivation, so when the implicit search needs
 an instance that doesn't exist in the scope, macros materialize it.
 
-The compilation of `frontend` requires type derivation via `case-app`, which
-depends on Shapeless. `case-app` derives a `caseapp.core.Parser` for a GADT
-defining the commands and parameters that your command line interface
+The compilation of `frontend` does automatic type derivation via `case-app`,
+which depends on Shapeless. `case-app` derives a `caseapp.core.Parser` for a
+GADT defining the commands and parameters that your command line interface
 accepts. This derivation relies on the `Lazy`, `Strict`, `Tagged` and
 `LabelledGeneric` macros, as well as other foundation blocks like `Coproduct`
 and `HList`.
@@ -520,11 +520,10 @@ and `HList`.
 These are normal dependencies of any library that uses Shapeless to guide
 type derivation.
 
-The most common inefficiency in this kind of program is repeated
-materialization of implicit instances via macros. It usually happens in any
-library that uses automatic type derivation. So if you're using Shapeless for
-anything (and do check your classpath, you never know), there is some hope
-you can make some cuts in your compile times.
+The most common inefficiency in automatic type derivation is repeated
+materialization of implicit instances via macros. If you're using Shapeless
+for anything (and do check your classpath, you never know), there is some
+hope you can make some cuts in your compile times.
 
 {{< figure src="/data/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}
 {{< figure src="/data/bloop-profile-2.svg" title="Final flamegraph" >}}
