@@ -266,8 +266,8 @@ phase.
 ```
 
 The report suggests that about **84.3% of the compilation time** is spent on
-typer. This is an unusual high. Typechecking a normal project is expected to
-take around 50-60% of the whole compilation time.
+typer. This is an unusual high value. Typechecking a normal project is
+expected to take around 50-60% of the whole compilation time.
 
 If you have a higher number than the average, then it most likely means
 you're pushing the typechecker hard in some unexpected way, and you should
@@ -286,7 +286,7 @@ you know how you're stressing the compiler.
 If the compilation of your program requires an unusual amount of subtype
 checks, `time spent in <:<` will be high. There are no normal values for
 subtype checks --the time spent here depends on a lot of factors-- but an
-abnormal value would be anything close to 15% of the whole typechecking time.
+abnormal value would be anything above to 15% of the whole typechecking time.
 
 The first thing we notice when studying the logs is that typechecking
 `frontend` takes 28 seconds. We also see some unusual values for the
@@ -327,35 +327,153 @@ overridden methods.
 `time spent in asSeenFrom` is high whenever your code makes a heavy use of
 dependent types, type projections or abstract types in a more general way.
 
-For most of the cases, these timers are unlikely to be high when typechecking
+In the case of `frontend`, the durations of all these operations are
+reasonable, which hints us that the inefficiency is elsewhere.
+
+(For most of the cases, these timers are unlikely to be high when typechecking
 your program. If they are, try to figure out why and file a ticket in
-`scala/bug` so that either I or the Scala team can look into it.
+`scala/bug` so that either I or the Scala team can look into it.)
 
 ### The troublemaker
 
-The reality is, most of the projects that suffer from compilation times abuse
-or misuse either macros (inefficient macro implementations that do a lot of
-`typecheck`/`untypecheck`), implicit searches (and misplaced implicit
-instances) or a combination of both (as we'll see in a bit).
+Most of the projects that suffer from compilation times abuse or misuse
+either macros (for example, inefficient macro implementations that do a lot
+of `typecheck`/`untypecheck`), implicit searches (for example, misplaced
+implicit instances that take too long to find) or a combination of both.
 
 It's difficult to miss how long macro expansion and implicit searches take in
 the compilation of `frontend`, and how the values seem to be highly
 correlated.
 
 ```
-time spent in implicits       : 33609 spans, ()26808.491ms (97.7%)
-  successful in scope         : 346 spans, ()71.931ms (0.3%)
-  failed in scope             : 33263 spans, ()3195.452ms (11.6%)
-  successful of type          : 18286 spans, ()26730.255ms (97.4%)
-  failed of type              : 14977 spans, ()17370.235ms (63.3%)
-  assembling parts            : 18647 spans, ()374.562ms (1.4%)
-  matchesPT                   : 136322 spans, ()505.763ms (1.8%)
-time spent in macroExpand  : 44445 spans, ()26451.132ms (96.4%)
+time spent implicits   : 33609 spans, ()26808.491ms (97.7%)
+  successful in scope  : 346 spans, ()71.931ms (0.3%)
+  failed in scope      : 33263 spans, ()3195.452ms (11.6%)
+  successful of type   : 18286 spans, ()26730.255ms (97.4%)
+  failed of type       : 14977 spans, ()17370.235ms (63.3%)
+  assembling parts     : 18647 spans, ()374.562ms (1.4%)
+  matchesPT            : 136322 spans, ()505.763ms (1.8%)
+time spent macroExpand : 44445 spans, ()26451.132ms (96.4%)
 ```
 
 This is a red flag. We expand around 44500 macro expansions (!) and spend
 almost the totality of the macro expansion time searching for implicits.
+We have our troublemaker.
+
+### Profiling implicit search
+
+How do we know which implicit searches are the most expensive? What are the
+macro expansions that dominate the compile time?
+
+The data we get from `-Ystatistics` doesn't help us answer these questions,
+even though they are fundamental to our analysis. As users, we treat macros
+as blackboxes ---mere building blocks of our library or application--- and
+now we need to unravel them.
+
+#### A profiling plugin for `scalac`
+
+To answer the previous questions, we're going to use
+[scalac-profiling](https://github.com/scalacenter/scalac-profiling), a
+compiler plugin that exposes more profiling data to Scala developers.
+
+I wrote the plugin with three goals in mind:
+
+* Expose a common file format that encapsulates all the compilation profiling
+  data, called `profiledb`.
+* Use visual tools to ease analysis of the data (e.g. flamegraphs).
+* Allow third parties to develop tooling to integrate this data in IDEs and editors.
+  There is a rough `vscode` prototype working.
+
+The compiler plugin hooks into several parts of the compiler to extract
+information related to implicit search and macro expansion. This data will
+prove instrumental to understand the interaction between both features.
+
+Install `scalac-profiling` by fetching the latest `6cac8b23` release.
+
+```bash
+$ coursier fetch ch.epfl.scala:scalac-profiling_2.12:6cac8b23 --intransitive
+```
+
+Then open the `frontend`'s bloop configuration file and add the following
+compiler options in the `options` field. Note that `-Xplugin` contains the
+`$PATH_TO_PLUGIN_JAR` variable which you must replace with the resolved
+artifact from coursier. Replace `$BLOOP_CODEBASE_DIRECTORY` by the base
+directory of the cloned bloop repository.
+
+```json
+  "-Xplugin:$PATH_TO_PLUGIN_JAR",
+  "-P:scalac-profiling:no-profiledb",
+  "-P:scalac-profiling:show-profiles",
+  "-P:scalac-profiling:sourceroot:$BLOOP_CODEBASE_DIRECTORY"
+```
+
+The flag `no-profiledb` disables the generation of `profiledb`s and
+`sourceroot` tells the plugin the base directory of the project. The
+profiledb is only required when we process the data with other tools, so by
+disabling it we keep the overhead of the plugin to the bare minimum.
+
+The flag `show-profiles` displays the following data in the compilation logs:
+
+* Implicit searches by position. Useful to know how many implicit searches were
+  triggered per position.
+* Implicit searches by type. Essential data to know how many implicit searches
+  were performed for a given type and how much time they took.
+* Repeated macro expansions. An optimistic counter that tells us how many of
+  the macros returned the same stringified AST nodes and could therefore be
+  cached across all use-sites (in the macro implementation).
+* Macro data in total, per file and per call-site. The macro data contains how
+  many invocations of a macro were performed, how many AST nodes were
+  synthesized by the macro and how long it took to perform all the macro
+  expansions.
+
+The profiling logs will be large, so make sure the buffer of your terminal is
+big enough so that you can browse through them.
+
+When you've added all the compile options to the configuration file and
+saved it, the next compilation will output a log [similar to this
+one](bloop-compile-0.txt). This is the profiling data we're going to dive into.
+
+#### The first visual
+
+First thing you notice from the data: compilation time has gone up. Don't
+worry, you haven't done anything wrong.
+
+```
+```
+
+The reason for this bump is that loading up a compiler plugin has a minimal
+overhead because of [dynamic plugin
+classloading](https://github.com/scala/scala/pull/6314) and the cost of the
+profiling itself. There are some solutions to this, but let's leave that to
+another blog post.
+
+The first thing we need is to get a visual of the implicit searches. To do
+that, we're going to create an implicit search flamegraph. Grep for the line
+"Writing graph to" in the logs to find the `.flamegraph` file containing the
+data.
+
+---
+
+##### Learn to generate a flamegraph
+
+To generate a flamegraph clone
+[brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph), and then run:
+
+```bash
+./flamegraph.pl --countname="ms" \
+                --colors=mem \
+                $PATH_TO_FLAMEGRAPH_PLUGIN_DATA > bloop-profile-initial.svg
+```
+
+---
+
+After you're all set up, you'll then get an `svg` file that looks like this:
 
 {{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph" >}}
+
+(The flamegraph is shown as an image but it's an svg. Open the image in a new
+tab to be able to hover on every stack, search through the stack entries and
+check the compilation times of every box.)
+
 {{< figure src="/data/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}
 {{< figure src="/data/bloop-profile-2.svg" title="Final flamegraph" >}}
