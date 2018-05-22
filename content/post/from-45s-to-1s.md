@@ -360,7 +360,7 @@ This is a red flag. We expand around 44500 macro expansions (!) and spend
 almost the totality of the macro expansion time searching for implicits.
 We have our troublemaker.
 
-### Profiling implicit search
+### An initial exploration of the data
 
 How do we know which implicit searches are the most expensive? What are the
 macro expansions that dominate the compile time?
@@ -391,7 +391,10 @@ prove instrumental to understand the interaction between both features.
 Install `scalac-profiling` by fetching the latest `6cac8b23` release.
 
 ```bash
-$ coursier fetch ch.epfl.scala:scalac-profiling_2.12:6cac8b23 --intransitive
+> $ coursier fetch --intransitive ch.epfl.scala:scalac-profiling_2.12:6cac8b23
+https://repo1.maven.org/maven2/ch/epfl/scala/scalac-profiling_2.12/6cac8b23/scalac-profiling_2.12-6cac8b23.jar
+  100.0% [##########] 4.1 MiB (2.1 MiB / s)
+/home/jvican/.coursier/cache/v1/https/repo1.maven.org/maven2/ch/epfl/scala/scalac-profiling_2.12/6cac8b23/scalac-profiling_2.12-6cac8b23.jar
 ```
 
 Then open the `frontend`'s bloop configuration file and add the following
@@ -431,7 +434,8 @@ big enough so that you can browse through them.
 
 When you've added all the compile options to the configuration file and
 saved it, the next compilation will output a log [similar to this
-one](bloop-compile-0.txt). This is the profiling data we're going to dive into.
+one](bloop-compile-0.txt). This is the profiling data we're going to dig
+into.
 
 #### The first visual
 
@@ -472,25 +476,25 @@ You can then visualize it with `$BROWSER bloop-profile-initial.svg`.
 
 After we're all set up, we'll then get an `svg` file that looks like this:
 
-{{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `fronten`" >}}
+{{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `frontend`" >}}
 
 (The flamegraph is shown as an image but it's an svg. Open the image in a new
 tab to be able to hover on every stack, search through the stack entries and
 check the compilation times of every box.)
 
-What a beautiful graph. We finally have a visual of all the implicit searches
+What a beautiful graph! We finally have a visual of all the implicit searches
 our program is doing, and how their dependencies look like.
 
 Before we keep fiddling with the graph, let's learn about common implicit and
-macro usage patterns and which kind of inefficiencies we're after.
+macro usage patterns and which kind of inefficiencies we're after. That will
+help guide our exploration.
 
-#### Type derivation and its dangers
+#### Type derivation for the win
 
 Type derivation is a process that synthesizes types (usually, typeclasses)
-for other types. The process can be manual (you defined an `Encoder` for
+from other types. The process can be manual (you define an `Encoder` for
 every node of your GADT) or automatic (the `Encoder` derivation happens at
-compile time via macros and implicits, i.e. the compiler generates the code
-for you).
+compile time, i.e. the compiler generates the code for you).
 
 There are two families of automatic type derivation:
 
@@ -500,9 +504,9 @@ There are two families of automatic type derivation:
   for the derivation to succeed.
 
 Type derivation is popular in the Scala community. A few libraries (for
-example, `scalatest`) define their own macros to synthesize type classes. All
-the other libraries use Shapeless to guide the type derivation on the library
-side, which removes the need for extra macros.
+example, `scalatest`) define their own macros to synthesize type classes. The
+most common approach, though, is to use Shapeless to guide the type
+derivation on the library side, which removes the need for extra macros.
 
 Shapeless is a Scala compile-time framework that defines the basic building
 blocks to make computations at the typelevel. These computations are
@@ -514,16 +518,107 @@ The compilation of `frontend` does automatic type derivation via `case-app`,
 which depends on Shapeless. `case-app` derives a `caseapp.core.Parser` for a
 GADT defining the commands and parameters that your command line interface
 accepts. This derivation relies on the `Lazy`, `Strict`, `Tagged` and
-`LabelledGeneric` macros, as well as other foundation blocks like `Coproduct`
-and `HList`.
+`LabelledGeneric` macros, as well as other Shapeless data structures like
+`Coproduct` and `HList`.
 
 These are normal dependencies of any library that uses Shapeless to guide
 type derivation.
 
+#### The danger of implicit macros
+
+Automatic and semi-automatic type derivation use macro definitions defined as
+`implicit` to guide the type derivation at compile-time. For example, every time you
+derive an encoder for an `HList`, say `Encoder`, you derive it inductively
+for every element from the head to the tail.
+
+But how can macro definitions be `implicit` and what are the consequences of
+that?
+
+```scala
+implicit def foo[T](p: T): Foo[T] = macro fooImpl[T]
+
+// Undefined macro implementation for simplicity
+def fooImpl[T: ctx.WeakTypeTag]
+  (ctx: blackbox.Context)(p: ctx.Tree): ctx.Tree = ???
+```
+
+The code above defines an implicit def that synthesizes a type `Foo` for the
+type `T`. The code generation only depends on `p` and the type `T` so there
+are no functional dependencies. It is a dummy blackbox macro.
+
+When macros like `foo` are defined in a library and they are eligible for an
+implicit search of type `T`, the compiler goes through the list of all
+candidates based on the priority of implicit search and gets the first
+non-ambiguous match. If the match is a macro like `foo`, the macro is
+expanded and the code inlined at the call-site.
+
+This process is the same for all kinds of macro expansions, but worsens when
+you define whitebox macros. Whitebox macros have more capabilities than
+blackbox macros in that they can refine the type of their enclosing
+definition at the call-site.
+
+```scala
+val fooCallSite: Foo[String] = implicitly[Foo[String]]
+val bar: fooCallSite.Bar = ???
+```
+
+The above code snippet illustrates how a whitebox macro works. The implicit
+search will find the implementation of the `foo` macro, expand it, and then
+inline the code. For the sake of the example, the implementation of `foo`
+generates code of type `Foo` but that defines a type member `Bar`, then
+refining the type ascription `Foo[String]` in `fooCallSite` to `: Foo {type
+Bar = SomeType}` and making `bar` typecheck.
+
+Whitebox macros are powerful and that makes them dangerous too. As they can
+refine the types of the enclosing definitions, the implicit search algorithm
+needs to expand all the eligible macros *at one level of the implicit search*
+**always** for two purposes:
+
+* Check the exact return type to prune instances from the search.
+* Check for ambiguity of implicit values.
+
+In the context of implicit search, all kinds of macros pose a threat to our
+compile times, but whitebox macros are the most problematic.
+
+#### Bad shapeless patterns
+
+Shapeless defines **28 whitebox macros**. The most common whitebox Shapeless
+macros are `Generic`, `Lazy`, `Nat`, `Default` and polymorphic function
+values `Poly`. These are heavyweight macros that are common in many Scala
+projects.
+
+The main problem with all these macros is that they use automatic type
+derivation.
+
 The most common inefficiency in automatic type derivation is repeated
-materialization of implicit instances via macros. If you're using Shapeless
-for anything (and do check your classpath, you never know), there is some
-hope you can make some cuts in your compile times.
+materialization of implicit instances. Once a macro is triggered because an
+implicit doesn't exist in the scope of the call-site, the implicit search
+needs to materialize all the functional dependencies (all the implicit that
+are required for another implicit to be eligible) together with the implicits
+in scope.
+
+We learned this in the previous section, but it's key to realize that once
+you trigger a macro via implicit search, you're not in control of what the
+macro will do and you **cannot share implicit instances across macros**.
+
+In short, if the `foo` macro was to support higher kinded types,
+`implicitly[Foo[List[String]]]` and `implicitly[Foo[Baz[String]]]` would
+materialize `Foo[String]` **twice**! The same happens in nested implicit
+searches and it worsens as more and more functional dependencies generated by
+macros and nested types are used.
+
+No doubt that the pattern explained expands a high number of expanded macros
+and creates an explosion of generated code that then the compiler needs to
+typecheck.
+
+Remember that `frontend` was expanding 44500 macros? Now we have a faint idea
+why.
+
+### Putting the profiling toolkit at work
+
+We now have a clearer idea what we're after. `caseapp.core.Parser` is just an
+standard typeclass that is automatically materialized by Shapeless. We should
+see some of the repeated instance.
 
 {{< figure src="/data/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}
 {{< figure src="/data/bloop-profile-2.svg" title="Final flamegraph" >}}
