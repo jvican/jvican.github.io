@@ -6,6 +6,8 @@ date = "2018-05-20T10:00:00+01:00"
 
 Today I explain how I've reduced compilation times dramatically
 in one of the projects I've been working for the past months.
+This project uses automatic type derivation via Shapeless and I believe the
+optimizations here presented can be migrated to other Scala projects too.
 
 My goal is to explain how I:
 
@@ -86,7 +88,7 @@ their batch compilations take 2 or 3 seconds. However, compiling `frontend`
 is more than 20x slower. This slowness is surprising given that `frontend` is
 only about 6000 LOC, so [in
 theory](https://developer.lightbend.com/blog/2017-06-12-faster-scala-compiler/)
-it should be compiled in about 4 seconds.
+it should compile in ~4 seconds.
 
 `frontend` depends on
 [`case-app`](https://github.com/alexarchambault/case-app/), a command-line
@@ -95,8 +97,8 @@ parsing library for Scala that uses
 why the compilation takes 30 seconds.
 
 Waiting 30 seconds for a change to take effect (even under incremental
-compilation) is a no-go. It may not seem much, but such a long waits kill my
-productivity and get me out of the zone, which affects my decision-making
+compilation) is a no-go. It may not seem much, but this kind of wait kills
+productivity and gets me out of the zone. That affects my decision-making
 process a big deal.
 
 In the past, I've also noticed that a slow workflow discourages me from
@@ -286,7 +288,7 @@ you know how you're stressing the compiler.
 If the compilation of your program requires an unusual amount of subtype
 checks, `time spent in <:<` will be high. There are no normal values for
 subtype checks --the time spent here depends on a lot of factors-- but an
-abnormal value would be anything above to 15% of the whole typechecking time.
+abnormal value would be anything above 15% of the whole typechecking time.
 
 The first thing we notice when studying the logs is that typechecking
 `frontend` takes 28 seconds. We also see some unusual values for the
@@ -404,6 +406,7 @@ artifact from coursier. Replace `$BLOOP_CODEBASE_DIRECTORY` by the base
 directory of the cloned bloop repository.
 
 ```json
+  "-Ycache-plugin-class-loader:last-modified",
   "-Xplugin:$PATH_TO_PLUGIN_JAR",
   "-P:scalac-profiling:no-profiledb",
   "-P:scalac-profiling:show-profiles",
@@ -443,6 +446,7 @@ First thing you notice from the data: compilation time has gone up. Don't
 worry, you haven't done anything wrong.
 
 ```
+#total compile time   : 1 spans, ()46169.708ms
 ```
 
 Using a compiler plugin has a compilation overhead, so this behaviour is
@@ -465,9 +469,10 @@ To generate a flamegraph, clone
 then run the following script in the repository:
 
 ```bash
-./flamegraph.pl --countname="ms" \
-                --colors=mem \
-                $PATH_TO_FLAMEGRAPH_PLUGIN_DATA > bloop-profile-initial.svg
+./flamegraph.pl \
+    --hash --countname="ns" \
+    --color=scala-compilation \
+    $PATH_TO_FLAMEGRAPH_DATA > bloop-profile-initial.svg
 ```
 
 You can then visualize it with `$BROWSER bloop-profile-initial.svg`.
@@ -482,8 +487,8 @@ After we're all set up, we'll then get an `svg` file that looks like this:
 tab to be able to hover on every stack, search through the stack entries and
 check the compilation times of every box.)
 
-What a beautiful graph! We finally have a visual of all the implicit searches
-our program is doing, and how their dependencies look like.
+We finally have a visual of all the implicit searches our program is doing,
+and how their dependencies look like.
 
 Before we keep fiddling with the graph, let's learn about common implicit and
 macro usage patterns and which kind of inefficiencies we're after. That will
@@ -491,17 +496,18 @@ help guide our exploration.
 
 #### Type derivation for the win
 
-Type derivation is a process that synthesizes types (usually, typeclasses)
-from other types. The process can be manual (you define an `Encoder` for
-every node of your GADT) or automatic (the `Encoder` derivation happens at
-compile time, i.e. the compiler generates the code for you).
-
+Type (or typeclass) derivation is a process that synthesizes
+[typeclasses](https://en.wikipedia.org/wiki/Type_class) from other types. The
+process can be manual (you define an `Encoder` for every node of your GADT)
+or automatic (the `Encoder` derivation happens at compile time, i.e. the
+compiler generates the code for you).
 There are two families of automatic type derivation:
 
 * Automatic: all the type dependencies of the type you derive will be
   materialized by the compiler.
 * Semi-automatic: the type dependencies of the type you derive need to exist
-  for the derivation to succeed.
+  for the derivation to succeed. If they do, the compiler materializes the
+  type.
 
 Type derivation is popular in the Scala community. A few libraries (for
 example, `scalatest`) define their own macros to synthesize type classes. The
@@ -529,7 +535,7 @@ type derivation.
 Automatic and semi-automatic type derivation use macro definitions defined as
 `implicit` to guide the type derivation at compile-time. For example, every time you
 derive an encoder for an `HList`, say `Encoder`, you derive it inductively
-for every element from the head to the tail.
+for every element of its generic representation (`HList` or `Coproduct`).
 
 But how can macro definitions be `implicit` and what are the consequences of
 that?
@@ -577,48 +583,166 @@ needs to expand all the eligible macros *at one level of the implicit search*
 * Check the exact return type to prune instances from the search.
 * Check for ambiguity of implicit values.
 
-In the context of implicit search, all kinds of macros pose a threat to our
-compile times, but whitebox macros are the most problematic.
+All kinds of macros eligible for implicit search pose a threat to compile
+times and so they need to be used with care.
 
-#### Bad shapeless patterns
+#### The world of shapeless
 
 Shapeless defines **28 whitebox macros**. The most common whitebox Shapeless
 macros are `Generic`, `Lazy`, `Nat`, `Default` and polymorphic function
 values `Poly`. These are heavyweight macros that are common in many Scala
 projects.
 
-The main problem with all these macros is that they use automatic type
-derivation.
+The main problem with these macros is that their use is heavy in automatic
+type derivation. When used in that context, it is common that the compiler
+repeats the materialization of implicit instances. This is the main source of
+inefficiencies.
 
-The most common inefficiency in automatic type derivation is repeated
-materialization of implicit instances. Once a macro is triggered because an
-implicit doesn't exist in the scope of the call-site, the implicit search
-needs to materialize all the functional dependencies (all the implicit that
-are required for another implicit to be eligible) together with the implicits
-in scope.
+Once a macro is triggered because an implicit doesn't exist in the scope of
+the call-site, the implicit search needs to materialize all the functional
+dependencies (all the implicits that are required for another implicit to be
+eligible) together with the implicits in scope.
 
-We learned this in the previous section, but it's key to realize that once
-you trigger a macro via implicit search, you're not in control of what the
-macro will do and you **cannot share implicit instances across macros**.
+All these materialized instances **cannot be shared** across different
+implicit searches since they don't exist in the call-site. Once the macro is
+triggered, the code is expanded and typechecked and nothing can be re-used as
+the macro code doesn't have access to the previous expansions.
 
-In short, if the `foo` macro was to support higher kinded types,
-`implicitly[Foo[List[String]]]` and `implicitly[Foo[Baz[String]]]` would
-materialize `Foo[String]` **twice**! The same happens in nested implicit
-searches and it worsens as more and more functional dependencies generated by
-macros and nested types are used.
+#### Quick derivation example
 
-No doubt that the pattern explained expands a high number of expanded macros
-and creates an explosion of generated code that then the compiler needs to
-typecheck.
+```scala
+sealed trait Base
+case class Foo(xs: List[String]) extends Base
+case class Bar(xs: List[String], i: Int) extends Base
 
-Remember that `frontend` was expanding 44500 macros? Now we have a faint idea
-why.
+implicitly[Encoder[Foo]]
+implicitly[Encoder[Bar]]
+```
 
-### Putting the profiling toolkit at work
+For example, the code above illustrates how an hypothetic `Encoder` typeclass
+would need to materialize `List[String]` **twice** since its type appears in
+both definitions. The second call cannot detect that the first one
+synthesizes `Encoder[List[String]]` because for all purposes there isn't an
+implicit instance in scope.
+
+The same happens in nested implicit searches and it worsens as more and more
+functional dependencies generated by macros and nested types are used and
+required in every step of the inductive process.
+
+Remember that `frontend` was expanding 44500 macros and how intense was
+typechecking? Well, now we have a faint idea why.
+
+### The quest for optimization
 
 We now have a clearer idea what we're after. `caseapp.core.Parser` is just an
-standard typeclass that is automatically materialized by Shapeless. We should
-see some of the repeated instance.
+standard typeclass that is automatically materialized by Shapeless
+recursively.
+
+The profiling data reveals us that the majority of the time is spent in
+macro expansion and implicit searches, so it's likely we should see some of
+the repeated materialized instances we discussed about in the previous
+section.
+
+Let's look at the profiling data again.
+
+"Implicit searches by position" and "Macro data per file" tell us that almost
+all of the work happens in a file called `CliParsers`.
+
+```scala
+
+object CliParsers {
+  // Stubs to simplify reading the code
+  implicit val inputStreamRead: ArgParser[InputStream] = ???
+  implicit val printStreamRead: ArgParser[PrintStream] = ???
+  implicit val pathParser: ArgParser[Path] = ???
+
+  implicit val completionFormatRead: ArgParser[Format] = ???
+  implicit val propParser: ArgParser[PrettyProperties] = ???
+
+  import caseapp.core.{Messages, Parser}
+  val BaseMessages: Messages[DefaultBaseCommand] =
+    Messages[DefaultBaseCommand]
+  val OptionsParser: Parser[CliOptions] =
+    Parser.apply[CliOptions]
+
+  import caseapp.core.{CommandsMessages, CommandParser}
+  val CommandsMessages: CommandsMessages[RawCommand] =
+    CommandsMessages[RawCommand]
+  val CommandsParser: CommandParser[RawCommand] =
+    CommandParser.apply[RawCommand]
+}
+```
+
+The file defines specific parsers for data structures that `frontend`
+defines, creates an instance of `caseapp.core.Messages`, a parser for cli
+options, and then two instances of `CommandsMessages` and `CommandsParser`.
+
+The two lines that define `CommandsMessages` and `CommandsParser` are the
+ones that dominate the compilation time.
+
+`CommandsParser` is creating a parser for all the commands defined in the
+`RawCommand` GADT, which you can find in [this source
+file](https://github.com/scalacenter/bloop/blob/v1.0.0-M10/frontend/src/main/scala/bloop/cli/Commands.scala#L28).
+`RawCommand` has eight subclasses (commands) that specify the inputs required
+for every CLI invocation. Each of this commands defines a `@Recurse`
+field that allows Shapeless to reuse the parser for `CliOptions`.
+`CliOptions` in turn requires the parser of `CommonOptions` in the same
+fashion. Materializing this parser takes almost 14 seconds.
+
+`CommandsMessages` does a similar thing but instead of materializing a parser
+it materializes a class with a map of all the commands and information about
+the parameters (fields) it takes. The materialization of `Messages` takes
+around 13 seconds.
+
+Great. Let's come back to the flamegraph.
+
+{{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `frontend`" >}}
+
+It looks like all the towers of implicits are too similar. If we hover over
+all the chunks, we'll notice some repetition: most bite-sized chunks
+materialize either `Parser[CommonOptions]` or `Parser[CliOptions]`, depending
+at the height of the implicit branch you're at.
+
+This makes sense. After all, we're not caching these implicits in the call
+sites. Let's cache them before the materialization of `CommandsMessages` and
+`CommandsParser`.
+
+```scala
+implicit val coParser: Parser.Aux[CommonOptions, _] =
+  Parser.generic
+implicit val cliParser: Parser.Aux[CliOptions, _] =
+  Parser.generic
+```
+
+The code above calls the materialization entrypoints from `caseapp.Parser`
+directly. Type inference and implicit search will figure out the type
+parameters that `Parser.generic` needs from the return type we specify
+explicitly in the cached implicits.
+
+---
+
+A word of caution when caching implicits: make sure the rhs of the implicit
+definition doesn't depend on the implicit you're caching.
+
+It is common that `scalac` detects `coParser` as the candidate for the
+implicit search on its rhs. This creates a recursive call that causes a null
+pointer exception at runtime. We can reproduce the issue if we redefine
+`coParser` as `implicitly[Parser[CommonOptions]]` or
+`the[Parser[CommonOptions]]`.
+
+---
+
+```
+#total compile time  : 1 spans, ()19060.196ms
+  parser             : 1 spans, ()28.365ms (0.1%)
+  namer              : 1 spans, ()17.735ms (0.1%)
+  packageobjects     : 1 spans, ()0.065ms (0.0%)
+  typer              : 1 spans, ()13625.005ms (71.5%)
+```
+
+The two lines change had a great effect! The compile time looks much better
+now; it sped it up by almost 2.5x. How does the implicit flamegraph look like
+now?
 
 {{< figure src="/data/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}
 {{< figure src="/data/bloop-profile-2.svg" title="Final flamegraph" >}}
