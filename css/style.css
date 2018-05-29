@@ -182,7 +182,7 @@ a,
 	transition: all 0.15s ease;
 }
 
-ul, ol 	{ margin:0; padding:0; outline: 0; margin-bottom: 20px; }
+ul, ol 	{ margin:0; padding:0; outline: 0; margin-bottom: 20px; margin-left: 30px; }
 li 	{ margin:0; padding:0; outline: 0; }
 ul.li	{ list-style-type:circle; }
 
@@ -678,4 +678,8 @@ a[rel="footnote"] {
     font-size: 75%;
     line-height: 0;
     vertical-align: baseline;
+}
+
+figcaption > h4 {
+	text-align: right;
 }

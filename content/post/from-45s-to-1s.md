@@ -438,7 +438,7 @@ The profiling logs will be large, so make sure the buffer of your terminal is
 big enough so that you can browse through them.
 
 When you've added all the compile options to the configuration file and
-saved it, the next compilation will output a log [similar to this
+saved it, the next cpilation will output a log [similar to this
 one](bloop-compile-0.txt). This is the profiling data we're going to dig
 into.
 

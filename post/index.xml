@@ -6,10 +6,21 @@
     <description>Recent content in Posts on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Thu, 19 Oct 2017 23:29:12 +0200</lastBuildDate>
+    <lastBuildDate>Sun, 20 May 2018 10:00:00 +0100</lastBuildDate>
     
 	<atom:link href="https://jvican.github.io/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Reduce compile times of macros and implicits</title>
+      <link>https://jvican.github.io/post/from-45s-to-1s/</link>
+      <pubDate>Sun, 20 May 2018 10:00:00 +0100</pubDate>
+      
+      <guid>https://jvican.github.io/post/from-45s-to-1s/</guid>
+      <description>Today I explain how I&amp;rsquo;ve reduced compilation times dramatically in one of the projects I&amp;rsquo;ve been working for the past months. This project uses automatic type derivation via Shapeless and I believe the optimizations here presented can be migrated to other Scala projects too.
+My goal is to explain how I:
+ identified the bottleneck of compilation; profiled the compilation time of my application; and, changed a few lines of code to get much better compile times.</description>
+    </item>
     
     <item>
       <title>How often do we change our sbt builds</title>
