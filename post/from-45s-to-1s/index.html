@@ -322,7 +322,7 @@ need of a <code>reload</code>.</p>
 
 <p>Run <code>bloop compile frontend -w --reporter scalac</code> (we use the default scalac
 reporter for clarity) and have a look at the data. The output of the
-compilation will be <a href="/data/bloop-compile-stats-0.txt">similar to this log</a>.
+compilation will be <a href="/images/bloop-compile-0.txt">similar to this log</a>.
 Check the end of it. You should see a report of compilation time spent per
 phase.</p>
 
@@ -526,7 +526,7 @@ expansions.</li>
 big enough so that you can browse through them.</p>
 
 <p>When you&rsquo;ve added all the compile options to the configuration file and
-saved it, the next cpilation will output a log <a href="bloop-compile-0.txt">similar to this
+saved it, the next cpilation will output a log <a href="/images/bloop-compile-0.txt">similar to this
 one</a>. This is the profiling data we&rsquo;re going to dig
 into.</p>
 
@@ -571,7 +571,7 @@ data.</p>
 
 <figure>
     
-        <img src="/data/bloop-profile-0.svg" />
+        <img src="/images/bloop-profile-0.svg" />
     
     
     <figcaption>
@@ -801,7 +801,7 @@ exploration.</p>
 
 <figure>
     
-        <img src="/data/bloop-profile-0.svg" />
+        <img src="/images/bloop-profile-0.svg" />
     
     
     <figcaption>
@@ -894,7 +894,7 @@ pointer exception at runtime. We can reproduce the issue if we redefine
 
 <figure>
     
-        <img src="/data/bloop-profile-1.svg" />
+        <img src="/images/bloop-profile-1.svg" />
     
     
     <figcaption>
@@ -1017,7 +1017,7 @@ time spent in macroExpand : 17175 spans, ()11974.695ms (92.0%)
 
 <figure>
     
-        <img src="/data/bloop-profile-2.svg" />
+        <img src="//bloop-profile-2.svg" />
     
     
     <figcaption>
@@ -1116,7 +1116,7 @@ entry for case-app core we&rsquo;re using in <code>frontend.json</code>. Afterwa
 implicit divergence checks of the compiler, which can give false positives
 when working with Shapeless data structures (short story).</p>
 
-<pre><code>data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:could not find implicit value for parameter parser: caseapp.Parser[bloop.cli.CliOptions]
+<pre><code>/data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:could not find implicit value for parameter parser: caseapp.Parser[bloop.cli.CliOptions]
 object Bloop extends CaseApp[CliOptions] {
                      ^
 /data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:not enough arguments for constructor CaseApp: (implicit parser: caseapp.Parser[bloop.cli.CliOptions], implicit messages: caseapp.core.Messages[bloop.cli.CliOptions]) caseapp.CaseApp[bloop.cli.CliOptions].
@@ -1139,7 +1139,7 @@ the changed version.</p>
 
 <figure>
     
-        <img src="/data/bloop-profile-3.svg" />
+        <img src="/images/bloop-profile-3.svg" />
     
     
     <figcaption>
@@ -1160,7 +1160,7 @@ compiling with our new case-app now.</p>
 
 <figure>
     
-        <img src="/data/bloop-profile-4.svg" />
+        <img src="/images/bloop-profile-4.svg" />
     
     
     <figcaption>
@@ -1207,7 +1207,7 @@ implicit val testParser: Parser.Aux[Commands.Test, _] = Parser.generic
 
 <figure>
     
-        <img src="/data/bloop-profile-5.svg" />
+        <img src="/images/bloop-profile-5.svg" />
     
     
     <figcaption>
@@ -1312,7 +1312,7 @@ implicit val labelledGenericCliOptions: LabelledGeneric.Aux[CliOptions, _] =
 
 <figure>
     
-        <img src="/data/bloop-profile-6.svg" />
+        <img src="/images/bloop-profile-6.svg" />
     
     
     <figcaption>

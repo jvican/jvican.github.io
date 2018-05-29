@@ -232,7 +232,7 @@ need of a `reload`.
 
 Run `bloop compile frontend -w --reporter scalac` (we use the default scalac
 reporter for clarity) and have a look at the data. The output of the
-compilation will be [similar to this log](/data/bloop-compile-stats-0.txt).
+compilation will be [similar to this log](/images/bloop-compile-0.txt).
 Check the end of it. You should see a report of compilation time spent per
 phase.
 
@@ -439,7 +439,7 @@ big enough so that you can browse through them.
 
 When you've added all the compile options to the configuration file and
 saved it, the next cpilation will output a log [similar to this
-one](bloop-compile-0.txt). This is the profiling data we're going to dig
+one](/images/bloop-compile-0.txt). This is the profiling data we're going to dig
 into.
 
 #### The first visual
@@ -482,7 +482,7 @@ You can then visualize it with `$BROWSER bloop-profile-initial.svg`.
 
 After we're all set up, we'll then get an `svg` file that looks like this:
 
-{{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `frontend`" >}}
+{{< figure src="/images/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `frontend`" >}}
 
 (The flamegraph is shown as an image but it's an svg. Open the image in a new
 tab to be able to hover on every stack, search through the stack entries and
@@ -700,7 +700,7 @@ exploration.
 
 #### Reading the implicit search flamegraph
 
-{{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `frontend`" >}}
+{{< figure src="/images/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `frontend`" >}}
 
 The flamegraph has three colors. Every color has a meaning.
 
@@ -780,7 +780,7 @@ Great! Well, let's check the compile time and flamegraphs now.
   typer              : 1 spans, ()13625.005ms (71.5%)
 ```
 
-{{< figure src="/data/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}
+{{< figure src="/images/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}
 
 The compile time is 2.5x faster. Not bad for a two line change. The duration
 of implicit search accounts for 13 seconds, roughly ~95% of typer.
@@ -894,7 +894,7 @@ time spent in implicits   : 13515 spans, ()12409.099ms (95.4%)
 time spent in macroExpand : 17175 spans, ()11974.695ms (92.0%)
 ```
 
-{{< figure src="/data/bloop-profile-2.svg" title="Implicit flamegraph after shapeless change" >}}
+{{< figure src="//bloop-profile-2.svg" title="Implicit flamegraph after shapeless change" >}}
 
 The change had a mild positive effect -- we gained two seconds. This change
 seems to have removed the log we saw before and some of the failed implicit
@@ -986,7 +986,7 @@ implicit divergence checks of the compiler, which can give false positives
 when working with Shapeless data structures (short story).
 
 ```
-data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:could not find implicit value for parameter parser: caseapp.Parser[bloop.cli.CliOptions]
+/data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:could not find implicit value for parameter parser: caseapp.Parser[bloop.cli.CliOptions]
 object Bloop extends CaseApp[CliOptions] {
                      ^
 /data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:not enough arguments for constructor CaseApp: (implicit parser: caseapp.Parser[bloop.cli.CliOptions], implicit messages: caseapp.core.Messages[bloop.cli.CliOptions]) caseapp.CaseApp[bloop.cli.CliOptions].
@@ -1007,7 +1007,7 @@ the changed version.
   typer              : 1 spans, ()11360.512ms (71.1%)
 ```
 
-{{< figure src="/data/bloop-profile-3.svg" title="New flamegraph baseline" >}}
+{{< figure src="/images/bloop-profile-3.svg" title="New flamegraph baseline" >}}
 
 The new caching only shaves around ~600ms of compile times. Let's check
 compiling with our new case-app now.
@@ -1017,7 +1017,7 @@ compiling with our new case-app now.
   typer              : 1 spans, ()5074.836ms (68.3%)
 ```
 
-{{< figure src="/data/bloop-profile-4.svg" title="Flamegraph after case-app change" >}}
+{{< figure src="/images/bloop-profile-4.svg" title="Flamegraph after case-app change" >}}
 
 Bingo! Most of the time-consuming failed implicit searches are gone and
 compilation time has halved. Our hypothesis is confirmed: the `Strict` macro
@@ -1054,7 +1054,7 @@ implicit val testParser: Parser.Aux[Commands.Test, _] = Parser.generic
   typer              : 1 spans, ()7925.156ms (78.0%)
 ```
 
-{{< figure src="/data/bloop-profile-5.svg" title="New flamegraph baseline" >}}
+{{< figure src="/images/bloop-profile-5.svg" title="New flamegraph baseline" >}}
 
 We're in the right direction, but there doesn't seem to be any
 straightforward way of decreasing that compilation time anymore.
@@ -1150,7 +1150,7 @@ And now let's check the compilation time.
   typer              : 1 spans, ()5435.895ms (74.6%)
 ```
 
-{{< figure src="/data/bloop-profile-6.svg" title="Flamegraph after all cached implicits" >}}
+{{< figure src="/images/bloop-profile-6.svg" title="Flamegraph after all cached implicits" >}}
 
 Great, that reduced compile times by 3 more seconds. You can continue the
 same strategy over and over as much as you want. We have already cached the
