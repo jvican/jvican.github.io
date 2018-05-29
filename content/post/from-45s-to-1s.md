@@ -413,6 +413,8 @@ directory of the cloned bloop repository.
   "-P:scalac-profiling:sourceroot:$BLOOP_CODEBASE_DIRECTORY"
 ```
 
+The first two flags set up the compiler plugin.
+
 The flag `no-profiledb` disables the generation of `profiledb`s and
 `sourceroot` tells the plugin the base directory of the project. The
 profiledb is only required when we process the data with other tools, so by
@@ -449,11 +451,10 @@ worry, you haven't done anything wrong.
 #total compile time   : 1 spans, ()46169.708ms
 ```
 
-Using a compiler plugin has a compilation overhead, so this behaviour is
-expected. The cost is due to [dynamic plugin
-classloading](https://github.com/scala/scala/pull/6314) and the cost of the
-profiling itself. There are some solutions to this, but let's leave that to
-another blog post.
+Compiler plugins add overhead so the increased compilation time is expected.
+In particular, the cost of `scalac-profiling` is high since it instruments
+key parts of typer via compiler hooks. Remember that the cost will disappear
+as soon as you remove the plugin from the bloop configuration file.
 
 The first thing we need is to get a visual of the implicit searches. To do
 that, we're going to create an implicit search flamegraph. Grep for the line
@@ -465,8 +466,8 @@ data.
 ##### Learn to generate a flamegraph
 
 To generate a flamegraph, clone
-[brendangregg/FlameGraph](https://github.com/brendangregg/FlameGraph), and
-then run the following script in the repository:
+[scalacenter/scalac-profiling](https://github.com/scalacenter/scalac-profiling),
+`cd` into `FlameGraph` and run the following script in the repository:
 
 ```bash
 ./flamegraph.pl \
@@ -488,11 +489,11 @@ tab to be able to hover on every stack, search through the stack entries and
 check the compilation times of every box.)
 
 We finally have a visual of all the implicit searches our program is doing,
-and how their dependencies look like.
+and how their dependencies look like. But before we keep finding out what the
+graph represents, let's take a slight detour and learn about common implicit
+and macro usage patterns and in which context they are used.
 
-Before we keep fiddling with the graph, let's learn about common implicit and
-macro usage patterns and which kind of inefficiencies we're after. That will
-help guide our exploration.
+This background information will help us read the flamegraph.
 
 #### Type derivation for the win
 
@@ -694,14 +695,44 @@ it materializes a class with a map of all the commands and information about
 the parameters (fields) it takes. The materialization of `Messages` takes
 around 13 seconds.
 
-Great. Let's come back to the flamegraph.
+Let's come back to the flamegraph. We're now ready to continue our
+exploration.
+
+#### Reading the implicit search flamegraph
 
 {{< figure src="/data/bloop-profile-0.svg" title="Initial flamegraph of implicit search in `frontend`" >}}
 
-It looks like all the towers of implicits are too similar. If we hover over
-all the chunks, we'll notice some repetition: most bite-sized chunks
-materialize either `Parser[CommonOptions]` or `Parser[CliOptions]`, depending
-at the height of the implicit branch you're at.
+The flamegraph has three colors. Every color has a meaning.
+
+1. Green: a successful implicit search whose result didn't come from a macro (the normal case).
+2. Blue (aqua): a successful implicit search whose result came from a macro.
+3. Red: a failed implicit search that triggered at least one macro.
+
+Every implicit search in the graph has some metadata at the end of the title.
+Depending on the color, we can find:
+
+1. Implicit search id: a number to identify an implicit search and inspect
+   its result tree via `-P:scalac-profiling:print-search-result:$SEARCH_ID`.
+2. The number of macro expansions triggered by an implicit search. This number
+   only covers the direct macro expansions (not the transitive ones).
+3. If the result tree comes from a macro, the macro location that expanded it.
+
+Example:
+
+```
+shapeless.Strict[caseapp.core.Parser[bloop.cli.Commands.Run]] (id 12121) (expanded macros 3) (tree from `shapeless.LazyMacrosRef.mkStrictImpl`)  (417,117 ns, 3.28%)
+```
+
+We're not going to use all of this information in the blog post, but it may
+turn handy whenever you research on your own. Check the rest of the supported
+compiler plugin flags [in the code](https://github.com/scalacenter/scalac-profiling/blob/master/plugin/src/main/scala/ch/epfl/scala/ProfilingPlugin.scala#L33-L40).
+
+After this short intro, let's delve into the data. The first thing that
+strucks me is how similar all the towers of implicits look (both in shape and
+duration). If we hover over all the chunks, the repetition will be obvious;
+most bite-sized chunks materialize either `Parser[CommonOptions]` or
+`Parser[CliOptions]`, depending at the height of the implicit branch we look
+at.
 
 This makes sense. After all, we're not caching these implicits in the call
 sites. Let's cache them before the materialization of `CommandsMessages` and
@@ -732,17 +763,299 @@ pointer exception at runtime. We can reproduce the issue if we redefine
 
 ---
 
+Great! Well, let's check the compile time and flamegraphs now.
+
 ```
 #total compile time  : 1 spans, ()19060.196ms
-  parser             : 1 spans, ()28.365ms (0.1%)
-  namer              : 1 spans, ()17.735ms (0.1%)
-  packageobjects     : 1 spans, ()0.065ms (0.0%)
   typer              : 1 spans, ()13625.005ms (71.5%)
 ```
 
-The two lines change had a great effect! The compile time looks much better
-now; it sped it up by almost 2.5x. How does the implicit flamegraph look like
-now?
-
 {{< figure src="/data/bloop-profile-1.svg" title="Flamegraph after cached implicits" >}}
-{{< figure src="/data/bloop-profile-2.svg" title="Final flamegraph" >}}
+
+The compile time is 2.5x faster. Not bad for a two line change. The duration
+of implicit search accounts for 13 seconds, roughly ~95% of typer.
+
+The flamegraph has slim down and doesn't contain the successful implicit
+searches for `Parser[CommonOptions]` and `Parser[CliOptions]`. However, there
+seems to be quite a few of failed implicit searches that trigger unnecessary
+macro expansions that are afterwards discarded because their type doesn't
+match the predicate type of the implicit search.
+
+```
+caseapp.core.Parser[bloop.cli.CliOptions]{type D = HD} (expanded macros 0)   (278,828 ns, 2.19%)
+caseapp.core.Parser[bloop.cli.CommonOptions]{type D = HD} (expanded macros 0)   (189,414 ns, 1.49%)
+```
+
+It looks like the implicit search doesn't immediately reuse our cached
+parsers for `CommonOptions` and `CliOptions` and first tries to pass in a
+explicit refinement type `D` that fails the search. The error seems to happen
+when finding an implicit for `HListParser` (which takes type parameters
+[inferred from its other functional
+dependencies](https://github.com/alexarchambault/case-app/blob/v1.2.0/core/shared/src/main/scala/caseapp/core/Parser.scala#L77-L84).
+
+Let's further debug this with `-Xlog-implicits` (by adding it to the scalac
+options of the bloop configuration file).
+
+(This is a good moment to try to minimize the problem. `-Xlog-implicits` will
+log a lot of failed searches and we want to be able to see through the noise.
+I did minimise it the issue easily by just asking for
+`implicitly[Parser[CliOptions]]`.)
+
+Among all the logs, the one type that calls my attention is the following:
+
+```
+/data/rw/code/scala/loop/frontend/src/main/scala/bloop/cli/CliParsers.scala:48:37: shapeless.this.Generic.materialize is not a valid implicit value for shapeless.Generic.Aux[bloop.cli.CommonOptions,V] because:
+type parameters weren't correctly instantiated outside of the implicit tree: inferred type arguments [String :: java.io.PrintStream :: java.io.InputStream :: java.io.PrintStream :: java.io.PrintStream :: java.io.PrintStream :: bloop.cli.CommonOptions.PrettyProperties :: Int :: shapeless.HNil,Nothing] do not conform to method materializeCoproduct's type parameter bounds [V <: shapeless.Coproduct,R <: shapeless.Coproduct]
+    caseapp.core.CommandParser.apply[Commands.RawCommand]
+                                    ^
+```
+
+Interesting. The compiler infers `R` to be `Nothing`, which of course cannot
+be a `Coproduct`, but that doesn't prevent the macro in
+`materializeCoproduct` to materialize and suck up some of our compile times.
+After all, the implicit search needs to have the exact return type of the
+macro.
+
+`Generic` is required by `case-app` via `LabelledGeneric`, which is required
+by `HListParser`. However, why is `materializeCoproduct` eligible in this
+context if all we want is to derive parsers for all the products of `Command`
+(e.g. all the subclasses that extend the `Command` GADT)?
+
+It seems this is bringing us to uncharted territory. We now need to
+investigate what the `Generic` macro is doing in the Shapeless codebase.
+
+#### A tour through Shapeless's `Generic`
+
+`Generic` is a macro that will derive the generic representation of a given
+product, a type that aggregates other types. A `case class Foo(i: Int, s:
+String)` aggregates `Int` and `String` types, whereas a `sealed trait Bar` is
+either of all its subclasses.
+
+The source code of `Generic` has two implicit candidates that materialize the
+instance depending if the candidate type is a `Product` or a `Coproduct`:
+[`materializeProduct`](https://github.com/milessabin/shapeless/blob/a42cd4c1c99e4a7be36e0239d3ee944a6355e321/core/src/main/scala/shapeless/generic.scala#L218-L230)
+and
+[`materializeCoproduct`](Xhttps://github.com/milessabin/shapeless/blob/a42cd4c1c99e4a7be36e0239d3ee944a6355e321/core/src/main/scala/shapeless/generic.scala#L232-L245).
+
+The problem of incorrect instantiated type arguments we saw before seems
+specific to the way the compiler carries out the implicit search. Fixing it
+requires most likely changes to the implicit search algorithm, as [a similar
+scala/bug did](https://github.com/scala/bug/issues/10528). I tried porting
+these changes to 2.12.x and use `-Xsource:2.13` but the failed macro
+expansions didn't go away.
+
+So we need to find a way to fix this in userspace if we want to make the logs
+disappear. The root of the issue is that both `materializeProduct` and
+`materializeCoproduct` are candidates of the implicit search and both are
+tried (to make sure there are no ambiguous implicits in the same scope).
+
+Let's try a trick. Let's move the definition of `materializeCoproduct` to a
+trait of low priority implicits that the `Generic` companion extends. This
+way, `materializeProduct` (the most common materializer) will always be the
+first one to be tried and only if that fails the implicit search will try
+`materializeCoproduct` in the lower priority scope that is any super class of
+the `Generic` companion class.
+After [making the
+change](https://github.com/jvican/shapeless/commit/9a6d70cbda92849ff2a9b3d99f2aa4d5d82bf21f)
+in the Shapeless codebase, we `coreJVM/package` in the shapeless build and
+replace the jar of shapeless 2.3.3 in the classpath by the one we just
+created with `package`. We also remove `-Xlog-implicits` and compile.
+
+```
+#total compile time  : 1 spans, ()16869.585ms
+  typer              : 1 spans, ()13011.067ms (77.1%)
+#implicit searches          : 13515
+  #plausibly compatible     : 15415 (114.1%)
+  #matching                 : 15415 (114.1%)
+  #typed                    : 15381 (113.8%)
+  #found                    : 8082 (59.8%)
+  #implicit improves tests  : 3673 (27.2%)
+  #implicit improves cached : 2614 (19.3%)
+  #implicit inscope hits    : 348 (2.6%)
+  #implicit oftype hits     : 7400 (54.8%)
+  from macros               : 12851 (95.1%)
+time spent in implicits   : 13515 spans, ()12409.099ms (95.4%)
+  successful in scope     : 348 spans, ()78.224ms (0.6%)
+  failed in scope         : 13167 spans, ()1363.491ms (10.5%)
+  successful of type      : 7400 spans, ()12287.668ms (94.4%)
+  failed of type          : 5767 spans, ()8322.049ms (64.0%)
+  assembling parts        : 8033 spans, ()237.456ms (1.8%)
+  matchesPT               : 79854 spans, ()566.231ms (4.4%)
+time spent in macroExpand : 17175 spans, ()11974.695ms (92.0%)
+```
+
+{{< figure src="/data/bloop-profile-2.svg" title="Implicit flamegraph after shapeless change" >}}
+
+The change had a mild positive effect -- we gained two seconds. This change
+seems to have removed the log we saw before and some of the failed implicit
+searches from the flamegraph, but most of the other ones still persist.
+
+What is really going on? Our change fixed the unnecessary expansion for
+`Generic`, but there seems to be a more fundamental issue at play.
+
+#### Strict/Lazy don't like the aux pattern
+
+It took me a while to find out what was happening, though I couldn't come up
+with a fix in the compiler (where I think the real issue is -- though it's
+still to be determined). However, I did come up with a fix in the library
+side.
+
+---
+
+After looking at the new output of `-Xlog-implicits`, I realized that the
+compiler must find a mismatch in the refinement types that are inferred
+previously to the search and materialized after the expansion.
+
+The [`Aux`
+pattern](https://github.com/milessabin/shapeless/blob/a42cd4c1c99e4a7be36e0239d3ee944a6355e321/core/src/main/scala/shapeless/generic.scala#L120-L148),
+a common technique used when declaring typeclasses, relies heavily on
+refinement types and all the failed implicit searches seem to be related in
+some way or another to the aux pattern of either `HListParser` or `Strict`.
+
+We can have a look at the definition of `Parser` again, which requires the
+materialization of `HListParser`. I intuited that the `Strict` macro may be
+doing something weird under the hood and causing the type mismatch.
+
+I expanded and pretty-printed some of the implicit logs I found:
+
+```scala
+shapeless.Strict[
+  caseapp.core.HListParser.Aux[
+    shapeless.labelled.FieldType[Symbol with shapeless.tag.Tagged[String("workingDirectory")],String] :: java.io.PrintStream with shapeless.labelled.KeyTag[Symbol with shapeless.tag.Tagged[String("out")],java.io.PrintStream] :: java.io.InputStream with shapeless.labelled.KeyTag[Symbol with shapeless.tag.Tagged[String("in")],java.io.InputStream] :: java.io.PrintStream with shapeless.labelled.KeyTag[Symbol with shapeless.tag.Tagged[String("err")],java.io.PrintStream] :: java.io.PrintStream with shapeless.labelled.KeyTag[Symbol with shapeless.tag.Tagged[String("ngout")],java.io.PrintStream] :: java.io.PrintStream with shapeless.labelled.KeyTag[Symbol with shapeless.tag.Tagged[String("ngerr")],java.io.PrintStream] :: shapeless.HNil,
+    Option[String] :: Option[java.io.PrintStream] :: Option[java.io.InputStream] :: Option[java.io.PrintStream] :: Option[java.io.PrintStream] :: Option[java.io.PrintStream] :: shapeless.HNil,
+    List[caseapp.Name] :: scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: shapeless.HNil,
+    Option[caseapp.ValueDescription] :: None.type :: None.type :: None.type :: None.type :: None.type :: shapeless.HNil,
+    Option[caseapp.HelpMessage] :: None.type :: None.type :: None.type :: None.type :: None.type :: shapeless.HNil,
+    Option[caseapp.Hidden] :: Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: shapeless.HNil,
+    None.type :: None.type :: None.type :: None.type :: None.type :: None.type :: shapeless.HNil,
+    Option[String] :: this.P
+  ]
+]
+
+does not match expected type
+
+shapeless.Strict[
+  caseapp.core.HListParser.Aux[
+    shapeless.labelled.FieldType[Symbol @@ String("workingDirectory"),String] :: shapeless.labelled.FieldType[Symbol @@ String("out"),java.io.PrintStream] :: shapeless.labelled.FieldType[Symbol @@ String("in"),java.io.InputStream] :: shapeless.labelled.FieldType[Symbol @@ String("err"),java.io.PrintStream] :: shapeless.labelled.FieldType[Symbol @@ String("ngout"),java.io.PrintStream] :: shapeless.labelled.FieldType[Symbol @@ String("ngerr"),java.io.PrintStream] :: shapeless.ops.hlist.ZipWithKeys.hnilZipWithKeys.Out,
+    Option[String] :: Option[java.io.PrintStream] :: Option[java.io.InputStream] :: Option[java.io.PrintStream] :: Option[java.io.PrintStream] :: Option[java.io.PrintStream] :: shapeless.HNil,
+    scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: scala.collection.immutable.Nil.type :: shapeless.HNil,
+    None.type :: None.type :: None.type :: None.type :: None.type :: None.type :: shapeless.HNil,
+    None.type :: None.type :: None.type :: None.type :: None.type :: None.type :: shapeless.HNil,
+    Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: Some[caseapp.Hidden] :: shapeless.HNil,
+    None.type :: None.type :: None.type :: None.type :: None.type :: None.type :: shapeless.HNil,
+    HD
+  ]
+]
+```
+
+And inspect the generated code by the macro expansion by using
+`-P:scalac-profiling:print-search-result:_` and
+`-Ymacro-debug-lite`/`-Ymacro-debug-verbose` (which dumps all macro related
+logs). That extra inspection gave me some hints.
+
+The issue seems to be in the refinement of `HListParser`. In the previous log the last type parameter of `HListParser.Aux` (the refinement type) was `HD`, an abstract type used
+[here](https://github.com/alexarchambault/case-app/blob/v1.2.0/core/shared/src/main/scala/caseapp/core/HListParser.scala#L131-L159),
+and the returned refinement type from the macro was `Option[String] ::
+this.P`.
+
+We can try to debug and expand all type parameters, see what we get and
+continue the exploration from there. But whenever we find such a misterious
+open-ended error, it's difficult to pinpoint what the real problem and fix
+should be.
+
+Myself, I had a gut feeling that the `Strict` macro was interacting weirdly
+with the aux pattern and followed that hint. The way we can test this hypothesis
+is by going to [the definition of
+`Parser`](https://github.com/alexarchambault/case-app/blob/v1.2.0/core/shared/src/main/scala/caseapp/core/Parser.scala#L84)
+where we remove the `Strict` wrapping `HListParser`, `++2.12.6
+coreJVM/package` in the sbt build and replace the new jar by the classpath
+entry for case-app core we're using in `frontend.json`. Afterwards we compile.
+
+This change may cause errors since the use of `Strict` and `Lazy` disable the
+implicit divergence checks of the compiler, which can give false positives
+when working with Shapeless data structures (short story).
+
+```
+data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:could not find implicit value for parameter parser: caseapp.Parser[bloop.cli.CliOptions]
+object Bloop extends CaseApp[CliOptions] {
+                     ^
+/data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:not enough arguments for constructor CaseApp: (implicit parser: caseapp.Parser[bloop.cli.CliOptions], implicit messages: caseapp.core.Messages[bloop.cli.CliOptions]) caseapp.CaseApp[bloop.cli.CliOptions].
+Unspecified value parameters parser, messages.
+object Bloop extends CaseApp[CliOptions] {
+                     ^
+```
+
+The error can be mitigated by importing `coParser` and `cliParser` from
+`CliParsers` in the `Bloop.scala` source file. But doing so would change our
+baseline (because we're caching `Parser[CliOptions]` in another call-site
+that isn't our initial `CliParsers`). So let's remove the new case-app
+classpath entry, compile with the old case-app, and then compile again with
+the changed version.
+
+```
+#total compile time  : 1 spans, ()15972.609ms
+  typer              : 1 spans, ()11360.512ms (71.1%)
+```
+
+{{< figure src="/data/bloop-profile-3.svg" title="New flamegraph baseline" >}}
+
+The new caching only shaves around ~600ms of compile times. Let's check
+compiling with our new case-app now.
+
+```
+#total compile time  : 1 spans, ()7432.332ms
+  typer              : 1 spans, ()5074.836ms (68.3%)
+```
+
+{{< figure src="/data/bloop-profile-4.svg" title="New flamegraph baseline" >}}
+
+Bingo! Most of the time-consuming failed implicit searches are gone and
+compilation time has halved. Our hypothesis is confirmed: the `Strict` macro
+is doing something shady with the refinement type, but what exactly?
+
+#### The guts of the strict macro
+
+`Strict` is defined together with `Lazy` and shares almost all of its logic
+with it. We're after some kind of mishandling of refinement types, so let's
+check the codebase.
+
+If we read the implementation, we may notice that there's a method called
+`stripRefinements`. The git history of that method brings us as back as 4
+years ago, [when it was
+added](https://github.com/milessabin/shapeless/commit/ec0828dba8f0509b1271917e678f746f41e53ea7).
+
+The `Strict` macro removes the type refinement from the type it's trying to
+resolve and if it exists it tries to resolve the implicit via
+`resolveInstance`. If there is no refinement type, the macro continues its
+way and, if I understand correctly, tries to materialize an instance. We
+don't need to understand this complicated implementation to find our way to a
+fix.
+
+In our case, we are trying to strip the refinements of `HListParser.Aux`. But
+this is a type alias and isn't represented as a refined type, so
+`stripRefinements` will return `None` and we will not hit `resolveInstance`
+for that type!
+
+What we need to do is to `dealias` the type. Dealiasing applies a series of
+beta reductions until it returns the identity type, which ensures us that we
+won't see `HListParser.Aux` but its underlying aliased type.
+
+This transformation is trivial if we s remember the definition of
+`HListParser.Aux`.
+
+```scala
+object HListParser {
+  // ...
+  type Aux[
+    L <: HList,
+    D <: HList,
+    N <: HList,
+    V <: HList,
+    M <: HList,
+    H <: HList,
+    R <: HList,
+    P0 <: HList
+  ] = HListParser[L, D, N, V, M, H, R] { type P = P0 }
+  // ...
+}
+```
