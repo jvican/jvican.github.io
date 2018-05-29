@@ -1,6 +1,6 @@
 +++
-title = "From 45s to 1s compile times"
-description = "A tour on profiling of compilation times to understand the cost of automatic generic derivation."
+title = "Reduce compile times of macros and implicits"
+description = "A tour on profiling of compilation times to understand the cost of automatic generic derivation and the use of Shapeless."
 date = "2018-05-20T10:00:00+01:00"
 +++
 
@@ -723,6 +723,16 @@ Example:
 shapeless.Strict[caseapp.core.Parser[bloop.cli.Commands.Run]] (id 12121) (expanded macros 3) (tree from `shapeless.LazyMacrosRef.mkStrictImpl`)  (417,117 ns, 3.28%)
 ```
 
+On every stack trace, you have also the information about the timing. The
+unit of time is nanoseconds. So one million ns is one second. We use
+nanoseconds because flamegraphs cannot display decimal values and we don't
+want to lose time precision.
+
+Beware that an implicit search may not appear in the flamegraph even if it's
+performed by `scalac`. There could be implicit searches that are so fast to
+do that they take less than 0ns. Flamegraphs do not show entries whose value
+is under 0.
+
 We're not going to use all of this information in the blog post, but it may
 turn handy whenever you research on your own. Check the rest of the supported
 compiler plugin flags [in the code](https://github.com/scalacenter/scalac-profiling/blob/master/plugin/src/main/scala/ch/epfl/scala/ProfilingPlugin.scala#L33-L40).
@@ -1007,55 +1017,191 @@ compiling with our new case-app now.
   typer              : 1 spans, ()5074.836ms (68.3%)
 ```
 
-{{< figure src="/data/bloop-profile-4.svg" title="New flamegraph baseline" >}}
+{{< figure src="/data/bloop-profile-4.svg" title="Flamegraph after case-app change" >}}
 
 Bingo! Most of the time-consuming failed implicit searches are gone and
 compilation time has halved. Our hypothesis is confirmed: the `Strict` macro
-is doing something shady with the refinement type, but what exactly?
+is doing something shady.
 
-#### The guts of the strict macro
+We could try to continue, but that would require us to investigate how the
+`Strict` macro works and spot why it doesn't behave correctly.
 
-`Strict` is defined together with `Lazy` and shares almost all of its logic
-with it. We're after some kind of mishandling of refinement types, so let's
-check the codebase.
+Our best call is to file a ticket and let others more experienced with the
+codebase have a look at it. If we're lucky, someone will fix this issue
+upstream soon and we'll benefit from this speed up when we upgrade.
 
-If we read the implementation, we may notice that there's a method called
-`stripRefinements`. The git history of that method brings us as back as 4
-years ago, [when it was
-added](https://github.com/milessabin/shapeless/commit/ec0828dba8f0509b1271917e678f746f41e53ea7).
+#### Removing more repetition
 
-The `Strict` macro removes the type refinement from the type it's trying to
-resolve and if it exists it tries to resolve the implicit via
-`resolveInstance`. If there is no refinement type, the macro continues its
-way and, if I understand correctly, tries to materialize an instance. We
-don't need to understand this complicated implementation to find our way to a
-fix.
-
-In our case, we are trying to strip the refinements of `HListParser.Aux`. But
-this is a type alias and isn't represented as a refined type, so
-`stripRefinements` will return `None` and we will not hit `resolveInstance`
-for that type!
-
-What we need to do is to `dealias` the type. Dealiasing applies a series of
-beta reductions until it returns the identity type, which ensures us that we
-won't see `HListParser.Aux` but its underlying aliased type.
-
-This transformation is trivial if we s remember the definition of
-`HListParser.Aux`.
+There are still too many repeated tower of implicits in our flamegraph. 
+`CommandsParser` and `CommandsMessages` are deriving `Parser`s for every type
+in our `Command` GADT twice. Let's cache those too.
 
 ```scala
-object HListParser {
-  // ...
-  type Aux[
-    L <: HList,
-    D <: HList,
-    N <: HList,
-    V <: HList,
-    M <: HList,
-    H <: HList,
-    R <: HList,
-    P0 <: HList
-  ] = HListParser[L, D, N, V, M, H, R] { type P = P0 }
-  // ...
-}
+implicit val autocompleteParser: Parser.Aux[Commands.Autocomplete, _] = Parser.generic
+implicit val aboutParser: Parser.Aux[Commands.About, _] = Parser.generic
+implicit val bspParser: Parser.Aux[Commands.Bsp, _] = Parser.generic
+implicit val cleanParser: Parser.Aux[Commands.Clean, _] = Parser.generic
+implicit val compileParser: Parser.Aux[Commands.Compile, _] = Parser.generic
+implicit val configureParser: Parser.Aux[Commands.Configure, _] = Parser.generic
+implicit val helpParser: Parser.Aux[Commands.Help, _] = Parser.generic
+implicit val projectsParser: Parser.Aux[Commands.Projects, _] = Parser.generic
+implicit val runParser: Parser.Aux[Commands.Run, _] = Parser.generic
+implicit val testParser: Parser.Aux[Commands.Test, _] = Parser.generic
 ```
+
+```
+#total compile time  : 1 spans, ()10154.603ms
+  typer              : 1 spans, ()7925.156ms (78.0%)
+```
+
+{{< figure src="/data/bloop-profile-5.svg" title="New flamegraph baseline" >}}
+
+We're in the right direction, but there doesn't seem to be any
+straightforward way of decreasing that compilation time anymore.
+
+The flamegraph may not make obvious how many repeated expansions are
+happening in every branch, so let's have a look at the data emitted by
+`-P:scalac-profiling:show-profiles`.
+
+The "Macro expansions by type" and "Implicit searches by type" tells us
+how many repeated macros and implicit searches we have per type.
+
+An example of the most important ones from "Implicit searches by type" is.
+
+```
+  "caseapp.util.Implicit[caseapp.core.Default[String] :: shapeless.HNil]" -> 20,
+  "caseapp.core.Default[String] :: shapeless.HNil" -> 20,
+  "caseapp.util.Implicit[Some[caseapp.core.Default[String]] :+: None.type :+: shapeless.CNil]" -> 20,
+  "caseapp.core.Default[String]" -> 20,
+  "Some[caseapp.core.Default[String]] :+: None.type :+: shapeless.CNil" -> 20,
+  "caseapp.util.Implicit[Option[caseapp.core.Default[String]]]" -> 20,
+  "caseapp.core.ArgParser[String]" -> 20,
+  "caseapp.util.Implicit[Some[caseapp.core.Default[String]]]" -> 20,
+  "Option[caseapp.core.Default[String]]" -> 20,
+  "shapeless.HNil" -> 21,
+  "Some[caseapp.core.Default[Boolean]] :+: None.type :+: shapeless.CNil" -> 35,
+  "caseapp.core.Default[Boolean]" -> 35,
+  "caseapp.util.Implicit[Some[caseapp.core.Default[Boolean]] :+: None.type :+: shapeless.CNil]" -> 35,
+  "caseapp.util.Implicit[caseapp.core.Default[Boolean]]" -> 35,
+  "shapeless.Strict[caseapp.core.ArgParser[Boolean]]" -> 35,
+  "caseapp.core.Default[Boolean] :: shapeless.HNil" -> 35,
+  "caseapp.util.Implicit[Some[caseapp.core.Default[Boolean]]]" -> 35,
+  "caseapp.util.Implicit[Option[caseapp.core.Default[Boolean]]]" -> 35,
+  "Some[caseapp.core.Default[Boolean]]" -> 35,
+  "Option[caseapp.core.Default[Boolean]]" -> 35,
+  "caseapp.util.Implicit[caseapp.core.Default[Boolean] :: shapeless.HNil]" -> 35,
+  "caseapp.util.Implicit[Option[caseapp.core.Default[java.io.PrintStream]]]" -> 56,
+  "caseapp.util.Implicit[Some[caseapp.core.Default[java.io.PrintStream]] :+: None.type :+: shapeless.CNil]" -> 56,
+  "Some[caseapp.core.Default[java.io.PrintStream]] :+: None.type :+: shapeless.CNil" -> 56,
+  "shapeless.Strict[caseapp.core.ArgParser[java.io.PrintStream]]" -> 56,
+  "Option[caseapp.core.Default[java.io.PrintStream]]" -> 56,
+  "caseapp.core.Default[java.io.PrintStream]" -> 56,
+  "caseapp.util.Implicit[caseapp.core.Default[java.io.PrintStream]]" -> 56,
+  "Some[caseapp.core.Default[java.io.PrintStream]]" -> 56,
+  "caseapp.util.Implicit[caseapp.core.Default[java.io.PrintStream] :: shapeless.HNil]" -> 56,
+  "caseapp.core.Default[java.io.PrintStream] :: shapeless.HNil" -> 56,
+  "caseapp.util.Implicit[Some[caseapp.core.Default[java.io.PrintStream]]]" -> 56,
+  "None.type" -> 153,
+  "caseapp.util.Implicit[None.type]" -> 153,
+  "caseapp.util.Implicit[None.type :+: shapeless.CNil]" -> 153,
+  "caseapp.util.Implicit[shapeless.HNil]" -> 185
+```
+
+Let's cache some more implicits from here, especially the ones we intuit are
+most expensive.
+
+```scala
+import shapeless.{HNil, CNil, :+:, ::, Coproduct}
+implicit val implicitHNil: Implicit[HNil] = Implicit.hnil
+implicit val implicitNone: Implicit[None.type] = Implicit.instance(None)
+implicit val implicitNoneCnil: Implicit[None.type :+: CNil] =
+  Implicit.instance(Coproduct(None))
+
+implicit val implicitOptionDefaultString: Implicit[Option[Default[String]]] =
+  Implicit.instance(Some(caseapp.core.Defaults.string))
+
+implicit val implicitOptionDefaultInt: Implicit[Option[Default[Int]]] =
+  Implicit.instance(Some(caseapp.core.Defaults.int))
+
+implicit val implicitOptionDefaultBoolean: Implicit[Option[Default[Boolean]]] =
+  Implicit.instance(Some(caseapp.core.Defaults.boolean))
+
+implicit val implicitDefaultBoolean: Implicit[Default[Boolean]] =
+  Implicit.instance(caseapp.core.Defaults.boolean)
+
+implicit val implicitOptionDefaultOptionPath: Implicit[Option[Default[Option[Path]]]] =
+  Implicit.instance(None)
+
+implicit val implicitOptionDefaultPrintStream: Implicit[Option[Default[PrintStream]]] =
+  Implicit.instance(Some(Default.instance[PrintStream](System.out)))
+
+implicit val implicitOptionDefaultInputStream: Implicit[Option[Default[InputStream]]] =
+  Implicit.instance(Some(Default.instance[InputStream](System.in)))
+implicit val labelledGenericCommonOptions: LabelledGeneric.Aux[CommonOptions, _] =
+  LabelledGeneric.materializeProduct
+implicit val labelledGenericCliOptions: LabelledGeneric.Aux[CliOptions, _] =
+  LabelledGeneric.materializeProduct
+```
+
+And now let's check the compilation time.
+
+```
+#total compile time  : 1 spans, ()7285.771ms
+  typer              : 1 spans, ()5435.895ms (74.6%)
+```
+
+{{< figure src="/data/bloop-profile-6.svg" title="Flamegraph after all cached implicits" >}}
+
+Great, that reduced compile times by 3 more seconds. You can continue the
+same strategy over and over as much as you want. We have already cached the
+most expensive implicits, so other additions won't have a huge impact and so
+we skip them.
+
+You get the general idea of the process: read the profiles and optimize
+according to what the data shows and your understanding of the codebase is.
+
+We only have left one thing: removing all the red entries in our flamegraph.
+As we said before the issue seems to be either in Scala's implicit search or
+Shapeless. We'll get to a solution soon, but we leave that for another blog
+post.
+
+Let's now find out the compile time that we finally have achieved! Time to
+remove all the profiling from `frontend.json`.
+
+```
+*** Cumulative timers for phases
+#total compile time           : 1 spans, ()6073.106ms
+  parser                      : 1 spans, ()26.008ms (0.4%)
+  namer                       : 1 spans, ()13.583ms (0.2%)
+  packageobjects              : 1 spans, ()0.135ms (0.0%)
+  typer                       : 1 spans, ()4600.06ms (75.7%)
+  patmat                      : 1 spans, ()287.46ms (4.7%)
+  superaccessors              : 1 spans, ()11.071ms (0.2%)
+  extmethods                  : 1 spans, ()2.724ms (0.0%)
+  pickler                     : 1 spans, ()5.953ms (0.1%)
+  xsbt-api                    : 1 spans, ()88.622ms (1.5%)
+  xsbt-dependency             : 1 spans, ()54.133ms (0.9%)
+  refchecks                   : 1 spans, ()120.06ms (2.0%)
+  uncurry                     : 1 spans, ()100.083ms (1.6%)
+  fields                      : 1 spans, ()74.32ms (1.2%)
+  tailcalls                   : 1 spans, ()12.899ms (0.2%)
+  specialize                  : 1 spans, ()99.162ms (1.6%)
+  explicitouter               : 1 spans, ()25.078ms (0.4%)
+  erasure                     : 1 spans, ()182.628ms (3.0%)
+  posterasure                 : 1 spans, ()16.542ms (0.3%)
+  lambdalift                  : 1 spans, ()39.891ms (0.7%)
+  constructors                : 1 spans, ()11.033ms (0.2%)
+  flatten                     : 1 spans, ()13.57ms (0.2%)
+  mixin                       : 1 spans, ()15.472ms (0.3%)
+  cleanup                     : 1 spans, ()10.602ms (0.2%)
+  delambdafy                  : 1 spans, ()25.944ms (0.4%)
+  jvm                         : 1 spans, ()232.197ms (3.8%)
+  xsbt-analyzer               : 1 spans, ()1.355ms (0.0%)
+Done compiling.
+```
+
+We got from 32.5 seconds to 6 seconds, **that's a 5x reduction in compilation time**.
+
+## Conclusion
+
+TBD
