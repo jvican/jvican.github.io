@@ -4,6 +4,7 @@ description = "A tour on profiling of compilation times to understand the cost o
 date = "2018-05-20T10:00:00+01:00"
 +++
 
+
 Today I explain how I've reduced compilation times dramatically
 in one of the projects I've been working for the past months.
 This project uses automatic type derivation via Shapeless and I believe the
@@ -1205,3 +1206,4 @@ We got from 32.5 seconds to 6 seconds, **that's a 5x reduction in compilation ti
 ## Conclusion
 
 TBD
+
