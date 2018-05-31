@@ -392,13 +392,13 @@ The compiler plugin hooks into several parts of the compiler to extract
 information related to implicit search and macro expansion. This data will
 prove instrumental to understand the interaction between both features.
 
-Install `scalac-profiling` by fetching the latest `6cac8b23` release.
+Install `scalac-profiling` by fetching the `1.0.0` release.
 
 ```bash
-> $ coursier fetch --intransitive ch.epfl.scala:scalac-profiling_2.12:6cac8b23
+> $ coursier fetch --intransitive ch.epfl.scala:scalac-profiling_2.12:1.0.0
 https://repo1.maven.org/maven2/ch/epfl/scala/scalac-profiling_2.12/6cac8b23/scalac-profiling_2.12-6cac8b23.jar
   100.0% [##########] 4.1 MiB (2.1 MiB / s)
-/home/jvican/.coursier/cache/v1/https/repo1.maven.org/maven2/ch/epfl/scala/scalac-profiling_2.12/6cac8b23/scalac-profiling_2.12-6cac8b23.jar
+/home/jvican/.coursier/cache/v1/https/oss.sonatype.org/content/repositories/staging/ch/epfl/scala/scalac-profiling_2.12/1.0.0/scalac-profiling_2.12-1.0.0.jar
 ```
 
 Then open the `frontend`'s bloop configuration file and add the following
