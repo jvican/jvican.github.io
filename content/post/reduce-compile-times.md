@@ -1,6 +1,6 @@
 +++
 title = "Reduce compile times of macros and implicits"
-description = "A tour on profiling of compilation times to understand the cost of automatic typeclass derivation and the use of Shapeless."
+description = "A tour on profiling compilation times to understand the cost of automatic typeclass derivation with a focus on Shapeless."
 date = "2018-05-20T10:00:00+01:00"
 +++
 
