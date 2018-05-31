@@ -37,9 +37,6 @@ unintentional misuse of a macro-based library, or an inefficient
 implementation of a macro. You better catch them early so that they don't
 kill the productivity of your team.
 
-This is a long blog post so it may take you some time to digest. Put on your
-profiling hat and let's get our hands dirty.
-
 ## TL;DR
 
 We use a compiler plugin (`scalac-profiling`) and the new statistics
@@ -63,6 +60,9 @@ blog post is **highly recommended**.
 
 The [Conclusion]({{< ref "#conclusion" >}}) sums up all we've achieved
 throught the blog post, though the interesting bits are in the details.
+
+This is a long blog post. Put on your profiling hat and let's get our hands
+dirty!
 
 ## The codebase
 
