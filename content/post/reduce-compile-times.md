@@ -40,6 +40,28 @@ kill the productivity of your team.
 This is a long blog post so it may take you some time to digest. Put on your
 profiling hat and let's get our hands dirty.
 
+## TL;DR
+
+This blog post explains how to reduce compilation times caused by macros and
+implicit searches by using a compiler plugin called `scalac-profiling` and
+the new statistics infrastructure in `2.12.5`.
+
+These tools allow us to get a 8x speedup in
+[Bloop](https://scalacenter.github.io/bloop/), an application that makes an
+intense use of automatic typeclass derivation via Shapeless. You can expect
+similar speedups in either applications that rely on Shapeless to do
+automatic typeclass derivation or applications that make a heavy use of
+implicits and macros.
+
+This is a blog post rich in details and so it may take you some time to
+digest fully. If you're only interested in the TL;DR version and are already
+familiar with the causes of slow compilation times in Shapeless-like code,
+[check out directly the detective work]({{< ref
+"#the-cost-of-implicit-macros" >}}).
+
+In the [Conclusion]({{< ref "#conclusion" >}}), you will find a summary of what
+we achieve throughout the whole blog post.
+
 ## The codebase
 
 [Bloop](https://github.com/scalacenter/bloop) is a *build-tool-agnostic*
@@ -564,30 +586,20 @@ candidates based on the priority of implicit search and gets the first
 non-ambiguous match. If the match is a macro like `foo`, the macro is
 expanded and the code inlined at the call-site.
 
-This process is the same for all kinds of macro expansions, but worsens when
-you define whitebox macros. Whitebox macros have more capabilities than
-blackbox macros in that they can refine the type of their enclosing
-definition at the call-site.
+This algorithm is correct but problematic for macros. The compiler will
+always expand macros that are eligible to the implicit search even if the
+resulting trees are thrown away.
 
-```scala
-val fooCallSite: Foo[String] = implicitly[Foo[String]]
-val bar: fooCallSite.Bar = ???
-```
+On top of that, if several macros are candidates to an implicit search in the
+same implicit scope, all of them will be expanded because the compiler needs
+to check for ambiguity of implicit instances.
 
-The above code snippet illustrates how a whitebox macro works. The implicit
-search will find the implementation of the `foo` macro, expand it, and then
-inline the code. For the sake of the example, the implementation of `foo`
-generates code of type `Foo` but that defines a type member `Bar`, then
-refining the type ascription `Foo[String]` in `fooCallSite` to `: Foo {type
-Bar = SomeType}` and making `bar` typecheck.
+The efficiency of this process worsens when whitebox macros are used. For the
+sake of this blog post, let's think of a whitebox macro as a blackbox macro
+that can redefine the type of its enclosing definition.
 
-Whitebox macros are powerful and that makes them dangerous too. As they can
-refine the types of the enclosing definitions, the implicit search algorithm
-needs to expand all the eligible macros *at one level of the implicit search*
-**always** for two purposes:
-
-* Check the exact return type to prune instances from the search.
-* Check for ambiguity of implicit values.
+Whitebox macros are powerful and that makes them more expensive than blackbox
+macros: [they are typechecked three times by the Scala macro engine](https://github.com/scala/scala/pull/3236).
 
 All kinds of macros eligible for implicit search pose a threat to compile
 times and so they need to be used with care.
