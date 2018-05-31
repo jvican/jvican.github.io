@@ -1068,16 +1068,16 @@ There are still too many repeated tower of implicits in our flamegraph.
 in our `Command` GADT twice. Let's cache those too.
 
 ```scala
-implicit val autocompleteParser: Parser.Aux[Commands.Autocomplete, _] = Parser.generic
-implicit val aboutParser: Parser.Aux[Commands.About, _] = Parser.generic
-implicit val bspParser: Parser.Aux[Commands.Bsp, _] = Parser.generic
-implicit val cleanParser: Parser.Aux[Commands.Clean, _] = Parser.generic
-implicit val compileParser: Parser.Aux[Commands.Compile, _] = Parser.generic
-implicit val configureParser: Parser.Aux[Commands.Configure, _] = Parser.generic
-implicit val helpParser: Parser.Aux[Commands.Help, _] = Parser.generic
-implicit val projectsParser: Parser.Aux[Commands.Projects, _] = Parser.generic
-implicit val runParser: Parser.Aux[Commands.Run, _] = Parser.generic
-implicit val testParser: Parser.Aux[Commands.Test, _] = Parser.generic
+implicit val autocompleteParser: Parser[Commands.Autocomplete] = Parser.generic
+implicit val aboutParser: Parser[Commands.About] = Parser.generic
+implicit val bspParser: Parser[Commands.Bsp] = Parser.generic
+implicit val cleanParser: Parser[Commands.Clean] = Parser.generic
+implicit val compileParser: Parser[Commands.Compile] = Parser.generic
+implicit val configureParser: Parser[Commands.Configure] = Parser.generic
+implicit val helpParser: Parser[Commands.Help] = Parser.generic
+implicit val projectsParser: Parser[Commands.Projects] = Parser.generic
+implicit val runParser: Parser[Commands.Run] = Parser.generic
+implicit val testParser: Parser[Commands.Test] = Parser.generic
 ```
 
 ```
