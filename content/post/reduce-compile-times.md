@@ -919,7 +919,7 @@ time spent in implicits   : 13515 spans, ()12409.099ms (95.4%)
 time spent in macroExpand : 17175 spans, ()11974.695ms (92.0%)
 ```
 
-{{< figure src="//bloop-profile-2.svg" title="Implicit flamegraph after shapeless change" >}}
+{{< figure src="/images/bloop-profile-2.svg" title="Implicit flamegraph after shapeless change" >}}
 
 The change had a mild positive effect -- we gained two seconds. This change
 seems to have removed the log we saw before and some of the failed implicit
