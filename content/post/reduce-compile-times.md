@@ -295,7 +295,7 @@ phase.
 
 The report suggests that about **84.3% of the compilation time** is spent on
 typer. This is an unusual high value. Typechecking a normal project is
-expected to take around 50-60% of the whole compilation time.
+expected to take around 50-70% of the whole compilation time.
 
 If you have a higher number than the average, then it most likely means
 you're pushing the typechecker hard in some unexpected way, and you should
@@ -618,7 +618,8 @@ typeclass derivation. When used in that context, it is common that the compiler
 repeats the materialization of implicit instances. This is the main source of
 inefficiencies.
 
-Travis Brown explains it well in [this talk about Generic
+Travis Brown explains these inefficiences well in a more high-level manner in
+[this talk about Generic
 Derivation](https://meta.plasm.us/slides/scalaworld/#65) at Scalaworld.
 
 Once a macro is triggered because an implicit doesn't exist in the scope of
