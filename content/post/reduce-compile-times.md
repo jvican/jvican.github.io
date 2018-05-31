@@ -1309,8 +1309,7 @@ applaud these efforts.
 I believe we still need to find solutions to some of the fundamental problems
 of implicit searches and macros. In particular, being more aggressive in
 caching macro generated trees and baking into the compiler all the required
-knowledge to invalidate caching depending on the kind of macro and call-site
-it's called at.
+knowledge to invalidate caching depending on the kind of macro and call-site.
 
 There's a bright future ahead of us and we are working hard to get there.
 
