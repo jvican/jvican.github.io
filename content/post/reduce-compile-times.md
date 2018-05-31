@@ -42,25 +42,27 @@ profiling hat and let's get our hands dirty.
 
 ## TL;DR
 
-This blog post explains how to reduce compilation times caused by macros and
-implicit searches by using a compiler plugin called `scalac-profiling` and
-the new statistics infrastructure in `2.12.5`.
-
-These tools allow us to get a 8x speedup in
+We use a compiler plugin (`scalac-profiling`) and the new statistics
+infrastructure merged in Scala `2.12.5` to achieve speedups of 8x in the
+compilation time of one of the modules of
 [Bloop](https://scalacenter.github.io/bloop/), an application that makes an
-intense use of automatic typeclass derivation via Shapeless. You can expect
-similar speedups in either applications that rely on Shapeless to do
-automatic typeclass derivation or applications that make a heavy use of
+intense use of automatic typeclass derivation via Shapeless.
+
+You can expect similar speedups in either applications that rely on Shapeless
+to do automatic typeclass derivation or applications that make a heavy use of
 implicits and macros.
 
 This is a blog post rich in details and so it may take you some time to
 digest fully. If you're only interested in the TL;DR version and are already
 familiar with the causes of slow compilation times in Shapeless-like code,
-[check out directly the detective work]({{< ref
+skip the context and [check out directly the detective work]({{< ref
 "#the-cost-of-implicit-macros" >}}).
 
-In the [Conclusion]({{< ref "#conclusion" >}}), you will find a summary of what
-we achieve throughout the whole blog post.
+If you want to apply the same procedure in your project, reading the whole
+blog post is **highly recommended**.
+
+The [Conclusion]({{< ref "#conclusion" >}}) sums up all we've achieved
+throught the blog post, though the interesting bits are in the details.
 
 ## The codebase
 
