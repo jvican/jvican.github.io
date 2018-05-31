@@ -1,13 +1,13 @@
 +++
 title = "Reduce compile times of macros and implicits"
-description = "A tour on profiling of compilation times to understand the cost of automatic generic derivation and the use of Shapeless."
+description = "A tour on profiling of compilation times to understand the cost of automatic typeclass derivation and the use of Shapeless."
 date = "2018-05-20T10:00:00+01:00"
 +++
 
 Today I explain how I've reduced compilation times dramatically
 in one of the projects I've been working for the past months.
-This project uses automatic type derivation via Shapeless and I believe the
-optimizations here presented can be migrated to other Scala projects too.
+This project uses automatic typeclass derivation via Shapeless and I believe
+the optimizations here presented can be migrated to other Scala projects too.
 
 My goal is to explain how I:
 
@@ -16,8 +16,8 @@ My goal is to explain how I:
 1. changed a few lines of code to get *much* better compile times.
 
 A major part of this post goes to discussing **the cost of implicit search
-and macro expansions**, describe what automatic type derivation is and why
-both slow down compilation times.
+and macro expansions**, describe what automatic typeclass derivation is and
+why both slow down compilation times.
 
 After reading the blog post, you should understand:
 
@@ -26,7 +26,7 @@ After reading the blog post, you should understand:
   abuses implicit searches and macros.
 * How implicit search and macros interact in unexpected ways that hurt
   productivity and how you can optimize their interaction.
-* Why semi-automatic type derivation is preferred over automatic type
+* Why semi-automatic typeclass derivation is preferred over automatic typeclass
   derivation, and how the latter should only be used with extreme care.
 
 The most important take-away from this guide is that **you should not take
@@ -105,7 +105,7 @@ process a big deal.
 In the past, I've also noticed that a slow workflow discourages me from
 adding complete test suites (the more tests I add the more I need to wait to
 compile) or making experiments in the code. That has rendered my experience
-as an Scala developer less pleasant.
+as a Scala developer less pleasant.
 
 But this time I decided to fight Bloop compilation times, and documented my
 experience so that you can too.
@@ -164,7 +164,8 @@ replicate the results with full compilation.
 ```bash
 for i in {1..10}; do
   echo "Warming up the compiler; iteration $i"
-  bloop compile frontend -w
+  bloop clean frontend
+  bloop compile frontend
 done
 ```
 
@@ -175,7 +176,7 @@ intuitions aside. We're going to look at the raw compiler data with fresh
 eyes and see where that leads us.
 
 If you try to validate previously-formed assumptions, it's likely you'll be
-misleaded by the data. I've been there, so don't fall into the same trap.
+misled by the data. I've been there, so don't fall into the same trap.
 
 Profiling compilation times requires dedicated tools. There isn't much we can
 get from using profilers like Yourkit or Java Flight Recorder because they show
@@ -439,7 +440,7 @@ The profiling logs will be large, so make sure the buffer of your terminal is
 big enough so that you can browse through them.
 
 When you've added all the compile options to the configuration file and
-saved it, the next cpilation will output a log [similar to this
+saved it, the next compilation will output a log [similar to this
 one](/images/bloop-compile-0.txt). This is the profiling data we're going to dig
 into.
 
@@ -496,48 +497,51 @@ and macro usage patterns and in which context they are used.
 
 This background information will help us read the flamegraph.
 
-#### Type derivation for the win
+#### Typeclass derivation for the win
 
-Type (or typeclass) derivation is a process that synthesizes
+Typeclass derivation is a process that synthesizes
 [typeclasses](https://en.wikipedia.org/wiki/Type_class) from other types. The
 process can be manual (you define an `Encoder` for every node of your GADT)
 or automatic (the `Encoder` derivation happens at compile time, i.e. the
 compiler generates the code for you).
-There are two families of automatic type derivation:
 
-* Automatic: all the type dependencies of the type you derive will be
-  materialized by the compiler.
-* Semi-automatic: the type dependencies of the type you derive need to exist
-  for the derivation to succeed. If they do, the compiler materializes the
-  type.
+There are two families of automatic typeclass derivation:
 
-Type derivation is popular in the Scala community. A few libraries (for
+* Automatic: to derive a typeclass for a given type `T`, the compiler will
+  materialize any typeclass type `T` needs if it's not in scope.
+* Semi-automatic: to derive a typeclass for a given type `T`, all the types `T`
+  depends on have to have a derived typeclass in scope.
+
+Typeclass derivation is popular in the Scala community. A few libraries (for
 example, `scalatest`) define their own macros to synthesize type classes. The
 most common approach, though, is to use Shapeless to guide the type
 derivation on the library side, which removes the need for extra macros.
 
-Shapeless is a Scala compile-time framework that defines the basic building
-blocks to make computations at the typelevel. These computations are
-inductive and happen during compilation time via implicit search. Shapeless
-is popular for automatic type derivation, so when the implicit search needs
-an instance that doesn't exist in the scope, macros materialize it.
+Shapeless is a generic programming library that defines some basic building
+blocks (macros) to enable typelevel computations. These computations are
+driven by implicit search and happen at compilation time. Shapeless is
+popular library for automatic typeclass derivation because it can find out
+the generic representation of any `sealed trait`/`case class` you have in
+your program. So when the implicit search needs an instance that doesn't
+exist in the scope, macros materialize it.
 
-The compilation of `frontend` does automatic type derivation via `case-app`,
-which depends on Shapeless. `case-app` derives a `caseapp.core.Parser` for a
-GADT defining the commands and parameters that your command line interface
-accepts. This derivation relies on the `Lazy`, `Strict`, `Tagged` and
-`LabelledGeneric` macros, as well as other Shapeless data structures like
-`Coproduct` and `HList`.
+The compilation of `frontend` does automatic typeclass derivation via
+`case-app`, which depends on Shapeless. `case-app` derives a
+`caseapp.core.Parser` for a GADT defining the commands and parameters that
+your command line interface accepts. This derivation relies on the `Lazy`,
+`Strict`, `Tagged` and `LabelledGeneric` macros, as well as other Shapeless
+data structures like `Coproduct` and `HList`.
 
 These are normal dependencies of any library that uses Shapeless to guide
-type derivation.
+typeclass derivation.
 
 #### The cost of implicit macros
 
-Automatic and semi-automatic type derivation use macro definitions defined as
-`implicit` to guide the type derivation at compile-time. For example, every time you
-derive an encoder for an `HList`, say `Encoder`, you derive it inductively
-for every element of its generic representation (`HList` or `Coproduct`).
+Automatic and semi-automatic typeclass derivation use macro definitions
+defined as `implicit` to guide the typeclass derivation at compile-time. For
+example, every time you derive an encoder for an `HList`, say `Encoder`, you
+derive it inductively for every element of its generic representation
+(`HList` or `Coproduct`).
 
 But how can macro definitions be `implicit` and what are the consequences of
 that?
@@ -596,9 +600,12 @@ values `Poly`. These are heavyweight macros that are common in many Scala
 projects.
 
 The main problem with these macros is that their use is heavy in automatic
-type derivation. When used in that context, it is common that the compiler
+typeclass derivation. When used in that context, it is common that the compiler
 repeats the materialization of implicit instances. This is the main source of
 inefficiencies.
+
+Travis Brown explains it well in [this talk about Generic
+Derivation](https://meta.plasm.us/slides/scalaworld/#65) at Scalaworld.
 
 Once a macro is triggered because an implicit doesn't exist in the scope of
 the call-site, the implicit search needs to materialize all the functional
@@ -1302,6 +1309,7 @@ caching macro generated trees and baking into the compiler all the required
 knowledge to invalidate caching depending on the kind of macro and call-site
 it's called at.
 
-There's a bright future ahead of us and we are working hard to get there. In
-the meanwhile, this blog post aims to provide all the possible data to
+There's a bright future ahead of us and we are working hard to get there.
+
+In the meanwhile, this blog post aims to provide all the possible data to
 alleaviate your compile times and make your team more productive with Scala.
