@@ -1291,7 +1291,7 @@ Done compiling.
 It is safe to say it out loud now: we have reduced compilation time from 32.5
 seconds to 4 seconds. That's an **8x reduction in our compile time**.
 
-A great change taking into account that we've only modified around 30 lines
+A great result taking into account that we've only modified around 30 lines
 of code.
 
 ## Conclusion
