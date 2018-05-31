@@ -880,7 +880,9 @@ expansions didn't go away.
 So we need to find a way to fix this in userspace if we want to make the logs
 disappear. The root of the issue is that both `materializeProduct` and
 `materializeCoproduct` are candidates of the implicit search and both are
-tried (to make sure there are no ambiguous implicits in the same scope).
+tried (*for some reason*, both are considered eligible even though
+`materializeCoprodut` shouldn't and the compiler needs tro ty both to make
+sure there are no ambiguous implicits in the same scope).
 
 Let's try a trick. Let's move the definition of `materializeCoproduct` to a
 trait of low priority implicits that the `Generic` companion extends. This

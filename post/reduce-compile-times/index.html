@@ -50,7 +50,7 @@
 
 <meta itemprop="datePublished" content="2018-05-20T10:00:00&#43;01:00" />
 <meta itemprop="dateModified" content="2018-05-20T10:00:00&#43;01:00" />
-<meta itemprop="wordCount" content="8274">
+<meta itemprop="wordCount" content="8292">
 
 
 
@@ -999,7 +999,9 @@ expansions didn&rsquo;t go away.</p>
 <p>So we need to find a way to fix this in userspace if we want to make the logs
 disappear. The root of the issue is that both <code>materializeProduct</code> and
 <code>materializeCoproduct</code> are candidates of the implicit search and both are
-tried (to make sure there are no ambiguous implicits in the same scope).</p>
+tried (<em>for some reason</em>, both are considered eligible even though
+<code>materializeCoprodut</code> shouldn&rsquo;t and the compiler needs tro ty both to make
+sure there are no ambiguous implicits in the same scope).</p>
 
 <p>Let&rsquo;s try a trick. Let&rsquo;s move the definition of <code>materializeCoproduct</code> to a
 trait of low priority implicits that the <code>Generic</code> companion extends. This
