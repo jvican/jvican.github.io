@@ -824,17 +824,18 @@ parsers for `CommonOptions` and `CliOptions` and first tries to pass in a
 explicit refinement type `D` that fails the search. The error seems to happen
 when finding an implicit for `HListParser` (which takes type parameters
 [inferred from its other functional
-dependencies](https://github.com/alexarchambault/case-app/blob/v1.2.0/core/shared/src/main/scala/caseapp/core/Parser.scala#L77-L84).
+dependencies](https://github.com/alexarchambault/case-app/blob/v1.2.0/core/shared/src/main/scala/caseapp/core/Parser.scala#L77-L84)).
 
 Let's further debug this with `-Xlog-implicits` (by adding it to the scalac
 options of the bloop configuration file).
 
 (This is a good moment to try to minimize the problem. `-Xlog-implicits` will
 log a lot of failed searches and we want to be able to see through the noise.
-I did minimise it the issue easily by just asking for
-`implicitly[Parser[CliOptions]]`.)
+I did minimise the issue
+[here](https://github.com/scalacenter/scalac-profiling/pull/23/commits/dbcb8d480e9b402899d21620055bc555b2841382).
+Doing `implicitly[Parser[CliOptions]]` also reproduces it.)
 
-Among all the logs, the one type that calls my attention is the following:
+Among all the logs, this is the one that calls most my attention.
 
 ```
 /data/rw/code/scala/loop/frontend/src/main/scala/bloop/cli/CliParsers.scala:48:37: shapeless.this.Generic.materialize is not a valid implicit value for shapeless.Generic.Aux[bloop.cli.CommonOptions,V] because:
@@ -843,11 +844,10 @@ type parameters weren't correctly instantiated outside of the implicit tree: inf
                                     ^
 ```
 
-Interesting. The compiler infers `R` to be `Nothing`, which of course cannot
-be a `Coproduct`, but that doesn't prevent the macro in
-`materializeCoproduct` to materialize and suck up some of our compile times.
-After all, the implicit search needs to have the exact return type of the
-macro.
+The compiler infers `R` to be `Nothing`, which of course cannot be a
+`Coproduct`, but that doesn't prevent the macro in `materializeCoproduct` to
+materialize and suck up some of our compile times. After all, the implicit
+search needs to have the exact return type of the macro.
 
 `Generic` is required by `case-app` via `LabelledGeneric`, which is required
 by `HListParser`. However, why is `materializeCoproduct` eligible in this
@@ -880,16 +880,20 @@ expansions didn't go away.
 So we need to find a way to fix this in userspace if we want to make the logs
 disappear. The root of the issue is that both `materializeProduct` and
 `materializeCoproduct` are candidates of the implicit search and both are
-tried (*for some reason*, both are considered eligible even though
-`materializeCoprodut` shouldn't and the compiler needs tro ty both to make
-sure there are no ambiguous implicits in the same scope).
+tried. The compiler considers both eligible even though
+`materializeCoprodunt` should be discarded. As this isn't the case, the
+compiler then forces the expansion of all candidates to check for ambiguous
+ambiguous implicits in the same scope).
 
 Let's try a trick. Let's move the definition of `materializeCoproduct` to a
 trait of low priority implicits that the `Generic` companion extends. This
 way, `materializeProduct` (the most common materializer) will always be the
-first one to be tried and only if that fails the implicit search will try
-`materializeCoproduct` in the lower priority scope that is any super class of
-the `Generic` companion class.
+first one to be tried.
+
+Only if that search fails the implicit search will try `materializeCoproduct`
+in the lower priority scope that is any super class of the `Generic`
+companion class.
+
 After [making the
 change](https://github.com/jvican/shapeless/commit/9a6d70cbda92849ff2a9b3d99f2aa4d5d82bf21f)
 in the Shapeless codebase, we `coreJVM/package` in the shapeless build and
@@ -925,10 +929,10 @@ The change had a mild positive effect -- we gained two seconds. This change
 seems to have removed the log we saw before and some of the failed implicit
 searches from the flamegraph, but most of the other ones still persist.
 
-What is really going on? Our change fixed the unnecessary expansion for
+What is really going on? Our modification fixed the unnecessary expansion for
 `Generic`, but there seems to be a more fundamental issue at play.
 
-#### Strict/Lazy don't like the aux pattern
+#### The Strict/Lazy macro doesn't like the aux pattern
 
 It took me a while to find out what was happening, though I couldn't come up
 with a fix in the compiler (where I think the real issue is -- though it's

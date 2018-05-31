@@ -50,7 +50,7 @@
 
 <meta itemprop="datePublished" content="2018-05-20T10:00:00&#43;01:00" />
 <meta itemprop="dateModified" content="2018-05-20T10:00:00&#43;01:00" />
-<meta itemprop="wordCount" content="8292">
+<meta itemprop="wordCount" content="8296">
 
 
 
@@ -944,17 +944,18 @@ parsers for <code>CommonOptions</code> and <code>CliOptions</code> and first tri
 explicit refinement type <code>D</code> that fails the search. The error seems to happen
 when finding an implicit for <code>HListParser</code> (which takes type parameters
 <a href="https://github.com/alexarchambault/case-app/blob/v1.2.0/core/shared/src/main/scala/caseapp/core/Parser.scala#L77-L84">inferred from its other functional
-dependencies</a>.</p>
+dependencies</a>).</p>
 
 <p>Let&rsquo;s further debug this with <code>-Xlog-implicits</code> (by adding it to the scalac
 options of the bloop configuration file).</p>
 
 <p>(This is a good moment to try to minimize the problem. <code>-Xlog-implicits</code> will
 log a lot of failed searches and we want to be able to see through the noise.
-I did minimise it the issue easily by just asking for
-<code>implicitly[Parser[CliOptions]]</code>.)</p>
+I did minimise the issue
+<a href="https://github.com/scalacenter/scalac-profiling/pull/23/commits/dbcb8d480e9b402899d21620055bc555b2841382">here</a>.
+Doing <code>implicitly[Parser[CliOptions]]</code> also reproduces it.)</p>
 
-<p>Among all the logs, the one type that calls my attention is the following:</p>
+<p>Among all the logs, this is the one that calls most my attention.</p>
 
 <pre><code>/data/rw/code/scala/loop/frontend/src/main/scala/bloop/cli/CliParsers.scala:48:37: shapeless.this.Generic.materialize is not a valid implicit value for shapeless.Generic.Aux[bloop.cli.CommonOptions,V] because:
 type parameters weren't correctly instantiated outside of the implicit tree: inferred type arguments [String :: java.io.PrintStream :: java.io.InputStream :: java.io.PrintStream :: java.io.PrintStream :: java.io.PrintStream :: bloop.cli.CommonOptions.PrettyProperties :: Int :: shapeless.HNil,Nothing] do not conform to method materializeCoproduct's type parameter bounds [V &lt;: shapeless.Coproduct,R &lt;: shapeless.Coproduct]
@@ -962,11 +963,10 @@ type parameters weren't correctly instantiated outside of the implicit tree: inf
                                     ^
 </code></pre>
 
-<p>Interesting. The compiler infers <code>R</code> to be <code>Nothing</code>, which of course cannot
-be a <code>Coproduct</code>, but that doesn&rsquo;t prevent the macro in
-<code>materializeCoproduct</code> to materialize and suck up some of our compile times.
-After all, the implicit search needs to have the exact return type of the
-macro.</p>
+<p>The compiler infers <code>R</code> to be <code>Nothing</code>, which of course cannot be a
+<code>Coproduct</code>, but that doesn&rsquo;t prevent the macro in <code>materializeCoproduct</code> to
+materialize and suck up some of our compile times. After all, the implicit
+search needs to have the exact return type of the macro.</p>
 
 <p><code>Generic</code> is required by <code>case-app</code> via <code>LabelledGeneric</code>, which is required
 by <code>HListParser</code>. However, why is <code>materializeCoproduct</code> eligible in this
@@ -999,17 +999,21 @@ expansions didn&rsquo;t go away.</p>
 <p>So we need to find a way to fix this in userspace if we want to make the logs
 disappear. The root of the issue is that both <code>materializeProduct</code> and
 <code>materializeCoproduct</code> are candidates of the implicit search and both are
-tried (<em>for some reason</em>, both are considered eligible even though
-<code>materializeCoprodut</code> shouldn&rsquo;t and the compiler needs tro ty both to make
-sure there are no ambiguous implicits in the same scope).</p>
+tried. The compiler considers both eligible even though
+<code>materializeCoprodunt</code> should be discarded. As this isn&rsquo;t the case, the
+compiler then forces the expansion of all candidates to check for ambiguous
+ambiguous implicits in the same scope).</p>
 
 <p>Let&rsquo;s try a trick. Let&rsquo;s move the definition of <code>materializeCoproduct</code> to a
 trait of low priority implicits that the <code>Generic</code> companion extends. This
 way, <code>materializeProduct</code> (the most common materializer) will always be the
-first one to be tried and only if that fails the implicit search will try
-<code>materializeCoproduct</code> in the lower priority scope that is any super class of
-the <code>Generic</code> companion class.
-After <a href="https://github.com/jvican/shapeless/commit/9a6d70cbda92849ff2a9b3d99f2aa4d5d82bf21f">making the
+first one to be tried.</p>
+
+<p>Only if that search fails the implicit search will try <code>materializeCoproduct</code>
+in the lower priority scope that is any super class of the <code>Generic</code>
+companion class.</p>
+
+<p>After <a href="https://github.com/jvican/shapeless/commit/9a6d70cbda92849ff2a9b3d99f2aa4d5d82bf21f">making the
 change</a>
 in the Shapeless codebase, we <code>coreJVM/package</code> in the shapeless build and
 replace the jar of shapeless 2.3.3 in the classpath by the one we just
@@ -1055,10 +1059,10 @@ time spent in macroExpand : 17175 spans, ()11974.695ms (92.0%)
 seems to have removed the log we saw before and some of the failed implicit
 searches from the flamegraph, but most of the other ones still persist.</p>
 
-<p>What is really going on? Our change fixed the unnecessary expansion for
+<p>What is really going on? Our modification fixed the unnecessary expansion for
 <code>Generic</code>, but there seems to be a more fundamental issue at play.</p>
 
-<h4 id="strict-lazy-don-t-like-the-aux-pattern">Strict/Lazy don&rsquo;t like the aux pattern</h4>
+<h4 id="the-strict-lazy-macro-doesn-t-like-the-aux-pattern">The Strict/Lazy macro doesn&rsquo;t like the aux pattern</h4>
 
 <p>It took me a while to find out what was happening, though I couldn&rsquo;t come up
 with a fix in the compiler (where I think the real issue is &ndash; though it&rsquo;s
@@ -1466,8 +1470,8 @@ Done compiling.
 <p>It is safe to say it out loud now: we have reduced compilation time from 32.5
 seconds to 4 seconds. That&rsquo;s an <strong>8x reduction in our compile time</strong>.</p>
 
-<p>A great change taking into account that we&rsquo;ve done changes under 30 lines of
-code.</p>
+<p>A great change taking into account that we&rsquo;ve only modified around 30 lines
+of code.</p>
 
 <h2 id="conclusion">Conclusion</h2>
 
