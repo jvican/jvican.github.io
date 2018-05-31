@@ -1314,4 +1314,6 @@ knowledge to invalidate caching depending on the kind of macro and call-site.
 There's a bright future ahead of us and we are working hard to get there.
 
 In the meanwhile, this blog post aims to provide all the possible data to
-alleaviate your compile times and make your team more productive with Scala.
+alleaviate the compile times of users that leverage automatic typeclass
+derivation. I hope this blog post helps make your team more productive with
+Scala.
