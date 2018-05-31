@@ -50,7 +50,7 @@
 
 <meta itemprop="datePublished" content="2018-05-20T10:00:00&#43;01:00" />
 <meta itemprop="dateModified" content="2018-05-20T10:00:00&#43;01:00" />
-<meta itemprop="wordCount" content="8286">
+<meta itemprop="wordCount" content="8315">
 
 
 
@@ -1257,7 +1257,8 @@ happening in every branch, so let&rsquo;s have a look at the data emitted by
 <p>The &ldquo;Macro expansions by type&rdquo; and &ldquo;Implicit searches by type&rdquo; tells us
 how many repeated macros and implicit searches we have per type.</p>
 
-<p>An example of the most important ones from &ldquo;Implicit searches by type&rdquo; is.</p>
+<p>For example, let&rsquo;s look at the most important entries from from the &ldquo;Implicit
+searches by type&rdquo; section.</p>
 
 <pre><code>  &quot;caseapp.util.Implicit[caseapp.core.Default[String] :: shapeless.HNil]&quot; -&gt; 20,
   &quot;caseapp.core.Default[String] :: shapeless.HNil&quot; -&gt; 20,
@@ -1297,7 +1298,7 @@ how many repeated macros and implicit searches we have per type.</p>
   &quot;caseapp.util.Implicit[shapeless.HNil]&quot; -&gt; 185
 </code></pre>
 
-<p>Let&rsquo;s cache some more implicits from here, especially the ones we intuit are
+<p>Let&rsquo;s cache some more implicits from here, especially the ones we see are
 most expensive.</p>
 
 <pre><code class="language-scala">import shapeless.{HNil, CNil, :+:, ::, Coproduct}
@@ -1381,16 +1382,17 @@ before when we removed the <code>Strict</code> typeclass from <code>case-app</co
 
 <p>Such automatic typeclass derivation, though, doesn&rsquo;t diverge after we cached
 the implicits! The divergence only happens when we derive typeclasses for
-types transitively. For example, deriving <code>CliOptions</code> because it&rsquo;s the type
-of a parameter in a command.</p>
+types transitively (and the transitive typeclasses don&rsquo;t exist). For example,
+if the parser for <code>CliOptions</code> isn&rsquo;t present in scope and we derive a
+<code>Parser[Compile]</code>, which has <code>CliOptions</code> as a parameter type, it will fail.</p>
 
-<p>Once we cached these intermediary derivations, we can safely remove the
-<code>Strict</code>s that cause the most problematic derivations. In particular, the
-change we did before and another use of <code>Strict</code> in the
-<code>HListParser.hconsRecursive</code>.</p>
+<p>So we can remove the uses of <code>Strict</code> from <code>case-app</code>. Once we cache these
+intermediary derivations, the divergence won&rsquo;t happen.</p>
 
-<p>The resulting diff in <code>case-app</code> is
-<a href="https://github.com/jvican/case-app/commit/148ffb0a20226a6224ab53f87a8f7411036cdd3f">here</a>.</p>
+<p>Aside from the change proposed in the previous section, we also remove the
+appearance of <code>Strict</code> in <code>HListParser.hconsRecursive</code>. These changes can be
+found in <a href="https://github.com/jvican/case-app/commit/148ffb0a20226a6224ab53f87a8f7411036cdd3f">this <code>case-app</code>
+diff</a>.</p>
 
 <p>It&rsquo;s worth noting what we&rsquo;re doing here explicitly: we&rsquo;re trading compile
 times by ergonomics. Whenever we add a parameter that doesn&rsquo;t have a cached

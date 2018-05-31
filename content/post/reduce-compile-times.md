@@ -1097,7 +1097,8 @@ happening in every branch, so let's have a look at the data emitted by
 The "Macro expansions by type" and "Implicit searches by type" tells us
 how many repeated macros and implicit searches we have per type.
 
-An example of the most important ones from "Implicit searches by type" is.
+For example, let's look at the most important entries from from the "Implicit
+searches by type" section.
 
 ```
   "caseapp.util.Implicit[caseapp.core.Default[String] :: shapeless.HNil]" -> 20,
@@ -1138,7 +1139,7 @@ An example of the most important ones from "Implicit searches by type" is.
   "caseapp.util.Implicit[shapeless.HNil]" -> 185
 ```
 
-Let's cache some more implicits from here, especially the ones we intuit are
+Let's cache some more implicits from here, especially the ones we see are
 most expensive.
 
 ```scala
@@ -1210,16 +1211,17 @@ before when we removed the `Strict` typeclass from `case-app` and
 
 Such automatic typeclass derivation, though, doesn't diverge after we cached
 the implicits! The divergence only happens when we derive typeclasses for
-types transitively. For example, deriving `CliOptions` because it's the type
-of a parameter in a command.
+types transitively (and the transitive typeclasses don't exist). For example,
+if the parser for `CliOptions` isn't present in scope and we derive a
+`Parser[Compile]`, which has `CliOptions` as a parameter type, it will fail.
 
-Once we cached these intermediary derivations, we can safely remove the
-`Strict`s that cause the most problematic derivations. In particular, the
-change we did before and another use of `Strict` in the
-`HListParser.hconsRecursive`.
+So we can remove the uses of `Strict` from `case-app`. Once we cache these
+intermediary derivations, the divergence won't happen.
 
-The resulting diff in `case-app` is
-[here](https://github.com/jvican/case-app/commit/148ffb0a20226a6224ab53f87a8f7411036cdd3f).
+Aside from the change proposed in the previous section, we also remove the
+appearance of `Strict` in `HListParser.hconsRecursive`. These changes can be
+found in [this `case-app`
+diff](https://github.com/jvican/case-app/commit/148ffb0a20226a6224ab53f87a8f7411036cdd3f).
 
 It's worth noting what we're doing here explicitly: we're trading compile
 times by ergonomics. Whenever we add a parameter that doesn't have a cached
