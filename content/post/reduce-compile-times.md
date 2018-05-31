@@ -1029,14 +1029,16 @@ compiling with our new case-app now.
 
 Bingo! Most of the time-consuming failed implicit searches are gone and
 compilation time has halved. Our hypothesis is confirmed: the `Strict` macro
-is doing something shady.
+is doing something suspicious.
 
-We could try to continue, but that would require us to investigate how the
-`Strict` macro works and spot why it doesn't behave correctly.
+We could try to find out what that is, but that would require us to
+investigate how the `Strict` macro works and spot why it doesn't behave
+correctly.
 
-Our best call is to file a ticket and let others more experienced with the
-codebase have a look at it. If we're lucky, someone will fix this issue
-upstream soon and we'll benefit from this speed up when we upgrade.
+We're short of time, so our best call is to file a ticket and let others more
+experienced with the codebase have a look at it. If we're lucky, someone will
+fix this issue upstream soon and we'll benefit from this speed up when we
+upgrade.
 
 #### Removing more repetition
 
