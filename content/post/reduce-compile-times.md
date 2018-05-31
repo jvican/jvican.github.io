@@ -1198,8 +1198,9 @@ The answer is yes. `Strict` or `Lazy` are only required when:
 
 Good, we don't have a recursive GADT (and it's unlikely you will in a CLI
 application). But we do have an automatic typeclass derivation process that
-meets the previous criteria. We experienced the implicit search failure when
-we removed the `Strict` typeclass from `case-app`.
+meets the previous criteria. We experienced the implicit search failure
+before when we removed the `Strict` typeclass from `case-app` and
+`Bloop.scala` failed to compile.
 
 Such automatic typeclass derivation, though, doesn't diverge after we cached
 the implicits! The divergence only happens when we derive typeclasses for
@@ -1235,7 +1236,8 @@ still uses a powerful derivation mechanism, it's easy to maintain and it's
 over 6000 LOC.
 
 In the flamegraph, we observe that we have removed the most expensive failed
-implicit searches, while some negligible remain.
+implicit searches, while some negligible searches remain. We can live with
+those.
 
 The duration of the typechecker is back to normal levels: 64%, a reasonable
 value for the codebase we're working on. We now need to remove the
@@ -1279,9 +1281,10 @@ Done compiling.
 ```
 
 It is safe to say it out loud now: we have reduced compilation time from 32.5
-seconds to 4 seconds. That's an **8x reduction in our compile time**. A
-pretty good change taking into account that we've done changes under 30 lines
-of code.
+seconds to 4 seconds. That's an **8x reduction in our compile time**.
+
+A great change taking into account that we've done changes under 30 lines of
+code.
 
 ## Conclusion
 
