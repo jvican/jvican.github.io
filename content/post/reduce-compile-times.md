@@ -1269,9 +1269,12 @@ of code.
 ## Conclusion
 
 Shapeless is a great library that enables use cases that before were too
-difficult for the majority of Scala developers. It has relieved these users
-from learning macros and getting familiar with the internals of the compiler
-to do both basic generic and advanced typelevel programming in Scala.
+difficult for the majority of Scala developers. These use cases save a lot of
+boilerplate.
+
+Shapeless has relieved these users from learning macros and getting familiar
+with the internals of the compiler to do both basic generic and advanced
+typelevel programming in Scala.
 
 However, the techniques used in Shapeless cause slow compilation times and
 may give an impression that the Scala compiler is terribly slow. These
