@@ -4,7 +4,6 @@ description = "A tour on profiling of compilation times to understand the cost o
 date = "2018-05-20T10:00:00+01:00"
 +++
 
-
 Today I explain how I've reduced compilation times dramatically
 in one of the projects I've been working for the past months.
 This project uses automatic type derivation via Shapeless and I believe the
@@ -38,7 +37,8 @@ unintentional misuse of a macro-based library, or an inefficient
 implementation of a macro. You better catch them early so that they don't
 kill the productivity of your team.
 
-Put on your profiling hat and let's get our hands dirty.
+This is a long blog post so it may take you some time to digest. Put on your
+profiling hat and let's get our hands dirty.
 
 ## The codebase
 
@@ -532,7 +532,7 @@ accepts. This derivation relies on the `Lazy`, `Strict`, `Tagged` and
 These are normal dependencies of any library that uses Shapeless to guide
 type derivation.
 
-#### The danger of implicit macros
+#### The cost of implicit macros
 
 Automatic and semi-automatic type derivation use macro definitions defined as
 `implicit` to guide the type derivation at compile-time. For example, every time you
@@ -1154,56 +1154,154 @@ And now let's check the compilation time.
 {{< figure src="/images/bloop-profile-6.svg" title="Flamegraph after all cached implicits" >}}
 
 Great, that reduced compile times by 3 more seconds. You can continue the
-same strategy over and over as much as you want. We have already cached the
-most expensive implicits, so other additions won't have a huge impact and so
-we skip them.
+same strategy over and over. This is where we stop; we have already cached the
+most expensive implicits, so other additions won't have such a big impact.
 
 You get the general idea of the process: read the profiles and optimize
 according to what the data shows and your understanding of the codebase is.
 
-We only have left one thing: removing all the red entries in our flamegraph.
-As we said before the issue seems to be either in Scala's implicit search or
-Shapeless. We'll get to a solution soon, but we leave that for another blog
-post.
+We only have one left assignment: removing all those failed implicit searches
+in our flamegraph. We saw that wrapping the implicit in `Strict` was
+problematic, can we do something about it in our end instead of waiting for a
+fix upstream?
 
-Let's now find out the compile time that we finally have achieved! Time to
-remove all the profiling from `frontend.json`.
+The answer is yes. `Strict` or `Lazy` are only required when:
+
+1. We have recursive GADTs.
+2. We use an automatic typeclass derivation scheme that increases the number
+   of type parameters to be determined by implicit search and thus "diverge" the
+   search.
+
+Good, we don't have a recursive GADT (and it's unlikely you will in a CLI
+application). But we do have an automatic typeclass derivation process that
+meets the previous criteria. We experienced the implicit search failure when
+we removed the `Strict` typeclass from `case-app`.
+
+Such automatic typeclass derivation, though, doesn't diverge after we cached
+the implicits! The divergence only happens when we derive typeclasses for
+types transitively. For example, deriving `CliOptions` because it's the type
+of a parameter in a command.
+
+Once we cached these intermediary derivations, we can safely remove the
+`Strict`s that cause the most problematic derivations. In particular, the
+change we did before and another use of `Strict` in the
+`HListParser.hconsRecursive`.
+
+The resulting diff in `case-app` is
+[here](https://github.com/jvican/case-app/commit/148ffb0a20226a6224ab53f87a8f7411036cdd3f).
+
+It's worth noting what we're doing here explicitly: we're trading compile
+times by ergonomics. Whenever we add a parameter that doesn't have a cached
+`Parser` for it in `CliParser`, the implicit search will fail with a `"Not
+found implicit instance"` error.
+
+This is a judgement call. Personally, I prefer having faster compile times
+than ergonomics, and even more so if the part of the code (the cli) doesn't
+change often as it is the case. Let's try out the new change!
+
+```
+#total compile time  : 1 spans, ()4511.197ms
+  typer              : 1 spans, ()2887.031ms (64.0%)
+```
+
+{{< figure src="/images/bloop-profile-7.svg" title="Flamegraph after caching + case-app changes" >}}
+
+Great! We now have a compile time under 5 seconds for an application that
+still uses a powerful derivation mechanism, it's easy to maintain and it's
+over 6000 LOC.
+
+In the flamegraph, we observe that we have removed the most expensive failed
+implicit searches, while some negligible remain.
+
+The duration of the typechecker is back to normal levels: 64%, a reasonable
+value for the codebase we're working on. We now need to remove the
+instrumentation overhead to see what's the final speedup we get.
+
+#### Getting the final results
+
+Let's remove the `scalac-profiling` plugin and all its flags from
+`frontend.json`. Run compilation two or three times to get stable results.
 
 ```
 *** Cumulative timers for phases
-#total compile time           : 1 spans, ()6073.106ms
-  parser                      : 1 spans, ()26.008ms (0.4%)
-  namer                       : 1 spans, ()13.583ms (0.2%)
-  packageobjects              : 1 spans, ()0.135ms (0.0%)
-  typer                       : 1 spans, ()4600.06ms (75.7%)
-  patmat                      : 1 spans, ()287.46ms (4.7%)
-  superaccessors              : 1 spans, ()11.071ms (0.2%)
-  extmethods                  : 1 spans, ()2.724ms (0.0%)
-  pickler                     : 1 spans, ()5.953ms (0.1%)
-  xsbt-api                    : 1 spans, ()88.622ms (1.5%)
-  xsbt-dependency             : 1 spans, ()54.133ms (0.9%)
-  refchecks                   : 1 spans, ()120.06ms (2.0%)
-  uncurry                     : 1 spans, ()100.083ms (1.6%)
-  fields                      : 1 spans, ()74.32ms (1.2%)
-  tailcalls                   : 1 spans, ()12.899ms (0.2%)
-  specialize                  : 1 spans, ()99.162ms (1.6%)
-  explicitouter               : 1 spans, ()25.078ms (0.4%)
-  erasure                     : 1 spans, ()182.628ms (3.0%)
-  posterasure                 : 1 spans, ()16.542ms (0.3%)
-  lambdalift                  : 1 spans, ()39.891ms (0.7%)
-  constructors                : 1 spans, ()11.033ms (0.2%)
-  flatten                     : 1 spans, ()13.57ms (0.2%)
-  mixin                       : 1 spans, ()15.472ms (0.3%)
-  cleanup                     : 1 spans, ()10.602ms (0.2%)
-  delambdafy                  : 1 spans, ()25.944ms (0.4%)
-  jvm                         : 1 spans, ()232.197ms (3.8%)
-  xsbt-analyzer               : 1 spans, ()1.355ms (0.0%)
+#total compile time           : 1 spans, ()4098.49ms
+  parser                      : 1 spans, ()18.775ms (0.5%)
+  namer                       : 1 spans, ()12.408ms (0.3%)
+  packageobjects              : 1 spans, ()0.074ms (0.0%)
+  typer                       : 1 spans, ()2612.532ms (63.7%)
+  patmat                      : 1 spans, ()286.802ms (7.0%)
+  superaccessors              : 1 spans, ()12.026ms (0.3%)
+  extmethods                  : 1 spans, ()3.201ms (0.1%)
+  pickler                     : 1 spans, ()6.389ms (0.2%)
+  xsbt-api                    : 1 spans, ()75.191ms (1.8%)
+  xsbt-dependency             : 1 spans, ()54.559ms (1.3%)
+  refchecks                   : 1 spans, ()122.441ms (3.0%)
+  uncurry                     : 1 spans, ()130.194ms (3.2%)
+  fields                      : 1 spans, ()57.397ms (1.4%)
+  tailcalls                   : 1 spans, ()13.512ms (0.3%)
+  specialize                  : 1 spans, ()105.903ms (2.6%)
+  explicitouter               : 1 spans, ()26.837ms (0.7%)
+  erasure                     : 1 spans, ()193.214ms (4.7%)
+  posterasure                 : 1 spans, ()16.83ms (0.4%)
+  lambdalift                  : 1 spans, ()41.906ms (1.0%)
+  constructors                : 1 spans, ()11.108ms (0.3%)
+  flatten                     : 1 spans, ()14.379ms (0.4%)
+  mixin                       : 1 spans, ()15.936ms (0.4%)
+  cleanup                     : 1 spans, ()11.516ms (0.3%)
+  delambdafy                  : 1 spans, ()26.534ms (0.6%)
+  jvm                         : 1 spans, ()224.115ms (5.5%)
+  xsbt-analyzer               : 1 spans, ()1.376ms (0.0%)
 Done compiling.
 ```
 
-We got from 32.5 seconds to 6 seconds, **that's a 5x reduction in compilation time**.
+It is safe to say it out loud now: we have reduced compilation time from 32.5
+seconds to 4 seconds. That's an **8x reduction in our compile time**. A
+pretty good change taking into account that we've done changes under 30 lines
+of code.
 
 ## Conclusion
 
-TBD
+Shapeless is a great library that enables use cases that before were too
+difficult for the majority of Scala developers. It has relieved these users
+from learning macros and getting familiar with the internals of the compiler
+to do both basic generic and advanced typelevel programming in Scala.
 
+However, the techniques used in Shapeless cause slow compilation times and
+may give an impression that the Scala compiler is terribly slow. These
+techniques are not specific to Shapeless and may happen in other libraries
+that use a lot of implicits and macros.
+
+In all these use cases, the slowness is most likely to be caused by a
+unintentional misuse of the APIs provided by these frameworks. In this guide,
+we have tried to identify what those issues are and how we can get the best
+of Shapeless and the compiler without compromising our productivity.
+
+We have learned that automatic typeclass derivation, while powerful and
+user-friendly, is likely to materialize implicits for the same type lots of
+times.
+
+We have used a new Scala Center tool (`scalac-profiling`) to profile
+implicits and macros to reduce the compile times of
+[Bloop](https://scalacenter.github.io/bloop/) by **8x**.
+
+Finally, we have gotten a little bit more familiar about the way automatic
+typeclass derivation interacts with macro and implicit searches. It is
+generally agreed that we need to find a better way to bake generation into
+the language to alleviate some of the pitfalls here described.
+
+There's some activity in this area. [Adriaan opened a ticket about it several
+months ago](https://github.com/scala/scala-dev/issues/445), and Miles is
+backporting the heavy machinery from Shapeless properly into the compiler
+(like [by-name
+implicits](https://docs.scala-lang.org/sips/byname-implicits.html)). I
+applaud these efforts.
+
+I believe we still need to find solutions to some of the fundamental problems
+of implicit searches and macros. In particular, being more aggressive in
+caching macro generated trees and baking into the compiler all the required
+knowledge to invalidate caching depending on the kind of macro and call-site
+it's called at.
+
+There's a bright future ahead of us and we are working hard to get there. In
+the meanwhile, this blog post aims to provide all the possible data to
+alleaviate your compile times and make your team more productive with Scala.
