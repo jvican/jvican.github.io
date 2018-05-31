@@ -1,13 +1,13 @@
 +++
 title = "Reduce compile times of macros and implicits"
-description = "A tour on profiling of compilation times to understand the cost of automatic generic derivation and the use of Shapeless."
+description = "A tour on profiling of compilation times to understand the cost of automatic typeclass derivation and the use of Shapeless."
 date = "2018-05-20T10:00:00+01:00"
 +++
 
 Today I explain how I've reduced compilation times dramatically
 in one of the projects I've been working for the past months.
-This project uses automatic type derivation via Shapeless and I believe the
-optimizations here presented can be migrated to other Scala projects too.
+This project uses automatic typeclass derivation via Shapeless and I believe
+the optimizations here presented can be migrated to other Scala projects too.
 
 My goal is to explain how I:
 
@@ -16,8 +16,8 @@ My goal is to explain how I:
 1. changed a few lines of code to get *much* better compile times.
 
 A major part of this post goes to discussing **the cost of implicit search
-and macro expansions**, describe what automatic type derivation is and why
-both slow down compilation times.
+and macro expansions**, describe what automatic typeclass derivation is and
+why both slow down compilation times.
 
 After reading the blog post, you should understand:
 
@@ -26,7 +26,7 @@ After reading the blog post, you should understand:
   abuses implicit searches and macros.
 * How implicit search and macros interact in unexpected ways that hurt
   productivity and how you can optimize their interaction.
-* Why semi-automatic type derivation is preferred over automatic type
+* Why semi-automatic typeclass derivation is preferred over automatic typeclass
   derivation, and how the latter should only be used with extreme care.
 
 The most important take-away from this guide is that **you should not take
@@ -37,7 +37,32 @@ unintentional misuse of a macro-based library, or an inefficient
 implementation of a macro. You better catch them early so that they don't
 kill the productivity of your team.
 
-Put on your profiling hat and let's get our hands dirty.
+This is a long blog post so it may take you some time to digest. Put on your
+profiling hat and let's get our hands dirty.
+
+## TL;DR
+
+We use a compiler plugin (`scalac-profiling`) and the new statistics
+infrastructure merged in Scala `2.12.5` to achieve speedups of 8x in the
+compilation time of one of the modules of
+[Bloop](https://scalacenter.github.io/bloop/), an application that makes an
+intense use of automatic typeclass derivation via Shapeless.
+
+You can expect similar speedups in either applications that rely on Shapeless
+to do automatic typeclass derivation or applications that make a heavy use of
+implicits and macros.
+
+This is a blog post rich in details and so it may take you some time to
+digest fully. If you're only interested in the TL;DR version and are already
+familiar with the causes of slow compilation times in Shapeless-like code,
+skip the context and [check out directly the detective work]({{< ref
+"#the-cost-of-implicit-macros" >}}).
+
+If you want to apply the same procedure in your project, reading the whole
+blog post is **highly recommended**.
+
+The [Conclusion]({{< ref "#conclusion" >}}) sums up all we've achieved
+throught the blog post, though the interesting bits are in the details.
 
 ## The codebase
 
@@ -104,7 +129,7 @@ process a big deal.
 In the past, I've also noticed that a slow workflow discourages me from
 adding complete test suites (the more tests I add the more I need to wait to
 compile) or making experiments in the code. That has rendered my experience
-as an Scala developer less pleasant.
+as a Scala developer less pleasant.
 
 But this time I decided to fight Bloop compilation times, and documented my
 experience so that you can too.
@@ -163,7 +188,8 @@ replicate the results with full compilation.
 ```bash
 for i in {1..10}; do
   echo "Warming up the compiler; iteration $i"
-  bloop compile frontend -w
+  bloop clean frontend
+  bloop compile frontend
 done
 ```
 
@@ -174,7 +200,7 @@ intuitions aside. We're going to look at the raw compiler data with fresh
 eyes and see where that leads us.
 
 If you try to validate previously-formed assumptions, it's likely you'll be
-misleaded by the data. I've been there, so don't fall into the same trap.
+misled by the data. I've been there, so don't fall into the same trap.
 
 Profiling compilation times requires dedicated tools. There isn't much we can
 get from using profilers like Yourkit or Java Flight Recorder because they show
@@ -269,7 +295,7 @@ phase.
 
 The report suggests that about **84.3% of the compilation time** is spent on
 typer. This is an unusual high value. Typechecking a normal project is
-expected to take around 50-60% of the whole compilation time.
+expected to take around 50-70% of the whole compilation time.
 
 If you have a higher number than the average, then it most likely means
 you're pushing the typechecker hard in some unexpected way, and you should
@@ -390,13 +416,13 @@ The compiler plugin hooks into several parts of the compiler to extract
 information related to implicit search and macro expansion. This data will
 prove instrumental to understand the interaction between both features.
 
-Install `scalac-profiling` by fetching the latest `6cac8b23` release.
+Install `scalac-profiling` by fetching the `1.0.0` release.
 
 ```bash
-> $ coursier fetch --intransitive ch.epfl.scala:scalac-profiling_2.12:6cac8b23
+> $ coursier fetch --intransitive ch.epfl.scala:scalac-profiling_2.12:1.0.0
 https://repo1.maven.org/maven2/ch/epfl/scala/scalac-profiling_2.12/6cac8b23/scalac-profiling_2.12-6cac8b23.jar
   100.0% [##########] 4.1 MiB (2.1 MiB / s)
-/home/jvican/.coursier/cache/v1/https/repo1.maven.org/maven2/ch/epfl/scala/scalac-profiling_2.12/6cac8b23/scalac-profiling_2.12-6cac8b23.jar
+/home/jvican/.coursier/cache/v1/https/oss.sonatype.org/content/repositories/staging/ch/epfl/scala/scalac-profiling_2.12/1.0.0/scalac-profiling_2.12-1.0.0.jar
 ```
 
 Then open the `frontend`'s bloop configuration file and add the following
@@ -438,7 +464,7 @@ The profiling logs will be large, so make sure the buffer of your terminal is
 big enough so that you can browse through them.
 
 When you've added all the compile options to the configuration file and
-saved it, the next cpilation will output a log [similar to this
+saved it, the next compilation will output a log [similar to this
 one](/images/bloop-compile-0.txt). This is the profiling data we're going to dig
 into.
 
@@ -495,48 +521,51 @@ and macro usage patterns and in which context they are used.
 
 This background information will help us read the flamegraph.
 
-#### Type derivation for the win
+#### Typeclass derivation for the win
 
-Type (or typeclass) derivation is a process that synthesizes
+Typeclass derivation is a process that synthesizes
 [typeclasses](https://en.wikipedia.org/wiki/Type_class) from other types. The
 process can be manual (you define an `Encoder` for every node of your GADT)
 or automatic (the `Encoder` derivation happens at compile time, i.e. the
 compiler generates the code for you).
-There are two families of automatic type derivation:
 
-* Automatic: all the type dependencies of the type you derive will be
-  materialized by the compiler.
-* Semi-automatic: the type dependencies of the type you derive need to exist
-  for the derivation to succeed. If they do, the compiler materializes the
-  type.
+There are two families of automatic typeclass derivation:
 
-Type derivation is popular in the Scala community. A few libraries (for
+* Automatic: to derive a typeclass for a given type `T`, the compiler will
+  materialize any typeclass type `T` needs if it's not in scope.
+* Semi-automatic: to derive a typeclass for a given type `T`, all the types `T`
+  depends on have to have a derived typeclass in scope.
+
+Typeclass derivation is popular in the Scala community. A few libraries (for
 example, `scalatest`) define their own macros to synthesize type classes. The
 most common approach, though, is to use Shapeless to guide the type
 derivation on the library side, which removes the need for extra macros.
 
-Shapeless is a Scala compile-time framework that defines the basic building
-blocks to make computations at the typelevel. These computations are
-inductive and happen during compilation time via implicit search. Shapeless
-is popular for automatic type derivation, so when the implicit search needs
-an instance that doesn't exist in the scope, macros materialize it.
+Shapeless is a generic programming library that defines some basic building
+blocks (macros) to enable typelevel computations. These computations are
+driven by implicit search and happen at compilation time. Shapeless is
+popular library for automatic typeclass derivation because it can find out
+the generic representation of any `sealed trait`/`case class` you have in
+your program. So when the implicit search needs an instance that doesn't
+exist in the scope, macros materialize it.
 
-The compilation of `frontend` does automatic type derivation via `case-app`,
-which depends on Shapeless. `case-app` derives a `caseapp.core.Parser` for a
-GADT defining the commands and parameters that your command line interface
-accepts. This derivation relies on the `Lazy`, `Strict`, `Tagged` and
-`LabelledGeneric` macros, as well as other Shapeless data structures like
-`Coproduct` and `HList`.
+The compilation of `frontend` does automatic typeclass derivation via
+`case-app`, which depends on Shapeless. `case-app` derives a
+`caseapp.core.Parser` for a GADT defining the commands and parameters that
+your command line interface accepts. This derivation relies on the `Lazy`,
+`Strict`, `Tagged` and `LabelledGeneric` macros, as well as other Shapeless
+data structures like `Coproduct` and `HList`.
 
 These are normal dependencies of any library that uses Shapeless to guide
-type derivation.
+typeclass derivation.
 
-#### The danger of implicit macros
+#### The cost of implicit macros
 
-Automatic and semi-automatic type derivation use macro definitions defined as
-`implicit` to guide the type derivation at compile-time. For example, every time you
-derive an encoder for an `HList`, say `Encoder`, you derive it inductively
-for every element of its generic representation (`HList` or `Coproduct`).
+Automatic and semi-automatic typeclass derivation use macro definitions
+defined as `implicit` to guide the typeclass derivation at compile-time. For
+example, every time you derive an encoder for an `HList`, say `Encoder`, you
+derive it inductively for every element of its generic representation
+(`HList` or `Coproduct`).
 
 But how can macro definitions be `implicit` and what are the consequences of
 that?
@@ -559,30 +588,20 @@ candidates based on the priority of implicit search and gets the first
 non-ambiguous match. If the match is a macro like `foo`, the macro is
 expanded and the code inlined at the call-site.
 
-This process is the same for all kinds of macro expansions, but worsens when
-you define whitebox macros. Whitebox macros have more capabilities than
-blackbox macros in that they can refine the type of their enclosing
-definition at the call-site.
+This algorithm is correct but problematic for macros. The compiler will
+always expand macros that are eligible to the implicit search even if the
+resulting trees are thrown away.
 
-```scala
-val fooCallSite: Foo[String] = implicitly[Foo[String]]
-val bar: fooCallSite.Bar = ???
-```
+On top of that, if several macros are candidates to an implicit search in the
+same implicit scope, all of them will be expanded because the compiler needs
+to check for ambiguity of implicit instances.
 
-The above code snippet illustrates how a whitebox macro works. The implicit
-search will find the implementation of the `foo` macro, expand it, and then
-inline the code. For the sake of the example, the implementation of `foo`
-generates code of type `Foo` but that defines a type member `Bar`, then
-refining the type ascription `Foo[String]` in `fooCallSite` to `: Foo {type
-Bar = SomeType}` and making `bar` typecheck.
+The efficiency of this process worsens when whitebox macros are used. For the
+sake of this blog post, let's think of a whitebox macro as a blackbox macro
+that can redefine the type of its enclosing definition.
 
-Whitebox macros are powerful and that makes them dangerous too. As they can
-refine the types of the enclosing definitions, the implicit search algorithm
-needs to expand all the eligible macros *at one level of the implicit search*
-**always** for two purposes:
-
-* Check the exact return type to prune instances from the search.
-* Check for ambiguity of implicit values.
+Whitebox macros are powerful and that makes them more expensive than blackbox
+macros: [they are typechecked three times by the Scala macro engine](https://github.com/scala/scala/pull/3236).
 
 All kinds of macros eligible for implicit search pose a threat to compile
 times and so they need to be used with care.
@@ -595,9 +614,13 @@ values `Poly`. These are heavyweight macros that are common in many Scala
 projects.
 
 The main problem with these macros is that their use is heavy in automatic
-type derivation. When used in that context, it is common that the compiler
+typeclass derivation. When used in that context, it is common that the compiler
 repeats the materialization of implicit instances. This is the main source of
 inefficiencies.
+
+Travis Brown explains these inefficiences well in a more high-level manner in
+[this talk about Generic
+Derivation](https://meta.plasm.us/slides/scalaworld/#65) at Scalaworld.
 
 Once a macro is triggered because an implicit doesn't exist in the scope of
 the call-site, the implicit search needs to materialize all the functional
@@ -1021,14 +1044,16 @@ compiling with our new case-app now.
 
 Bingo! Most of the time-consuming failed implicit searches are gone and
 compilation time has halved. Our hypothesis is confirmed: the `Strict` macro
-is doing something shady.
+is doing something suspicious.
 
-We could try to continue, but that would require us to investigate how the
-`Strict` macro works and spot why it doesn't behave correctly.
+We could try to find out what that is, but that would require us to
+investigate how the `Strict` macro works and spot why it doesn't behave
+correctly.
 
-Our best call is to file a ticket and let others more experienced with the
-codebase have a look at it. If we're lucky, someone will fix this issue
-upstream soon and we'll benefit from this speed up when we upgrade.
+We're short of time, so our best call is to file a ticket and let others more
+experienced with the codebase have a look at it. If we're lucky, someone will
+fix this issue upstream soon and we'll benefit from this speed up when we
+upgrade.
 
 #### Removing more repetition
 
@@ -1153,55 +1178,159 @@ And now let's check the compilation time.
 {{< figure src="/images/bloop-profile-6.svg" title="Flamegraph after all cached implicits" >}}
 
 Great, that reduced compile times by 3 more seconds. You can continue the
-same strategy over and over as much as you want. We have already cached the
-most expensive implicits, so other additions won't have a huge impact and so
-we skip them.
+same strategy over and over. This is where we stop; we have already cached the
+most expensive implicits, so other additions won't have such a big impact.
 
 You get the general idea of the process: read the profiles and optimize
 according to what the data shows and your understanding of the codebase is.
 
-We only have left one thing: removing all the red entries in our flamegraph.
-As we said before the issue seems to be either in Scala's implicit search or
-Shapeless. We'll get to a solution soon, but we leave that for another blog
-post.
+We only have one left assignment: removing all those failed implicit searches
+in our flamegraph. We saw that wrapping the implicit in `Strict` was
+problematic, can we do something about it in our end instead of waiting for a
+fix upstream?
 
-Let's now find out the compile time that we finally have achieved! Time to
-remove all the profiling from `frontend.json`.
+The answer is yes. `Strict` or `Lazy` are only required when:
+
+1. We have recursive GADTs.
+2. We use an automatic typeclass derivation scheme that increases the number
+   of type parameters to be determined by implicit search and thus "diverge" the
+   search.
+
+Good, we don't have a recursive GADT (and it's unlikely you will in a CLI
+application). But we do have an automatic typeclass derivation process that
+meets the previous criteria. We experienced the implicit search failure when
+we removed the `Strict` typeclass from `case-app`.
+
+Such automatic typeclass derivation, though, doesn't diverge after we cached
+the implicits! The divergence only happens when we derive typeclasses for
+types transitively. For example, deriving `CliOptions` because it's the type
+of a parameter in a command.
+
+Once we cached these intermediary derivations, we can safely remove the
+`Strict`s that cause the most problematic derivations. In particular, the
+change we did before and another use of `Strict` in the
+`HListParser.hconsRecursive`.
+
+The resulting diff in `case-app` is
+[here](https://github.com/jvican/case-app/commit/148ffb0a20226a6224ab53f87a8f7411036cdd3f).
+
+It's worth noting what we're doing here explicitly: we're trading compile
+times by ergonomics. Whenever we add a parameter that doesn't have a cached
+`Parser` for it in `CliParser`, the implicit search will fail with a `"Not
+found implicit instance"` error.
+
+This is a judgement call. Personally, I prefer having faster compile times
+than ergonomics, and even more so if the part of the code (the cli) doesn't
+change often as it is the case. Let's try out the new change!
+
+```
+#total compile time  : 1 spans, ()4511.197ms
+  typer              : 1 spans, ()2887.031ms (64.0%)
+```
+
+{{< figure src="/images/bloop-profile-7.svg" title="Flamegraph after caching + case-app changes" >}}
+
+Great! We now have a compile time under 5 seconds for an application that
+still uses a powerful derivation mechanism, it's easy to maintain and it's
+over 6000 LOC.
+
+In the flamegraph, we observe that we have removed the most expensive failed
+implicit searches, while some negligible remain.
+
+The duration of the typechecker is back to normal levels: 64%, a reasonable
+value for the codebase we're working on. We now need to remove the
+instrumentation overhead to see what's the final speedup we get.
+
+#### Getting the final results
+
+Let's remove the `scalac-profiling` plugin and all its flags from
+`frontend.json`. Run compilation two or three times to get stable results.
 
 ```
 *** Cumulative timers for phases
-#total compile time           : 1 spans, ()6073.106ms
-  parser                      : 1 spans, ()26.008ms (0.4%)
-  namer                       : 1 spans, ()13.583ms (0.2%)
-  packageobjects              : 1 spans, ()0.135ms (0.0%)
-  typer                       : 1 spans, ()4600.06ms (75.7%)
-  patmat                      : 1 spans, ()287.46ms (4.7%)
-  superaccessors              : 1 spans, ()11.071ms (0.2%)
-  extmethods                  : 1 spans, ()2.724ms (0.0%)
-  pickler                     : 1 spans, ()5.953ms (0.1%)
-  xsbt-api                    : 1 spans, ()88.622ms (1.5%)
-  xsbt-dependency             : 1 spans, ()54.133ms (0.9%)
-  refchecks                   : 1 spans, ()120.06ms (2.0%)
-  uncurry                     : 1 spans, ()100.083ms (1.6%)
-  fields                      : 1 spans, ()74.32ms (1.2%)
-  tailcalls                   : 1 spans, ()12.899ms (0.2%)
-  specialize                  : 1 spans, ()99.162ms (1.6%)
-  explicitouter               : 1 spans, ()25.078ms (0.4%)
-  erasure                     : 1 spans, ()182.628ms (3.0%)
-  posterasure                 : 1 spans, ()16.542ms (0.3%)
-  lambdalift                  : 1 spans, ()39.891ms (0.7%)
-  constructors                : 1 spans, ()11.033ms (0.2%)
-  flatten                     : 1 spans, ()13.57ms (0.2%)
-  mixin                       : 1 spans, ()15.472ms (0.3%)
-  cleanup                     : 1 spans, ()10.602ms (0.2%)
-  delambdafy                  : 1 spans, ()25.944ms (0.4%)
-  jvm                         : 1 spans, ()232.197ms (3.8%)
-  xsbt-analyzer               : 1 spans, ()1.355ms (0.0%)
+#total compile time           : 1 spans, ()4098.49ms
+  parser                      : 1 spans, ()18.775ms (0.5%)
+  namer                       : 1 spans, ()12.408ms (0.3%)
+  packageobjects              : 1 spans, ()0.074ms (0.0%)
+  typer                       : 1 spans, ()2612.532ms (63.7%)
+  patmat                      : 1 spans, ()286.802ms (7.0%)
+  superaccessors              : 1 spans, ()12.026ms (0.3%)
+  extmethods                  : 1 spans, ()3.201ms (0.1%)
+  pickler                     : 1 spans, ()6.389ms (0.2%)
+  xsbt-api                    : 1 spans, ()75.191ms (1.8%)
+  xsbt-dependency             : 1 spans, ()54.559ms (1.3%)
+  refchecks                   : 1 spans, ()122.441ms (3.0%)
+  uncurry                     : 1 spans, ()130.194ms (3.2%)
+  fields                      : 1 spans, ()57.397ms (1.4%)
+  tailcalls                   : 1 spans, ()13.512ms (0.3%)
+  specialize                  : 1 spans, ()105.903ms (2.6%)
+  explicitouter               : 1 spans, ()26.837ms (0.7%)
+  erasure                     : 1 spans, ()193.214ms (4.7%)
+  posterasure                 : 1 spans, ()16.83ms (0.4%)
+  lambdalift                  : 1 spans, ()41.906ms (1.0%)
+  constructors                : 1 spans, ()11.108ms (0.3%)
+  flatten                     : 1 spans, ()14.379ms (0.4%)
+  mixin                       : 1 spans, ()15.936ms (0.4%)
+  cleanup                     : 1 spans, ()11.516ms (0.3%)
+  delambdafy                  : 1 spans, ()26.534ms (0.6%)
+  jvm                         : 1 spans, ()224.115ms (5.5%)
+  xsbt-analyzer               : 1 spans, ()1.376ms (0.0%)
 Done compiling.
 ```
 
-We got from 32.5 seconds to 6 seconds, **that's a 5x reduction in compilation time**.
+It is safe to say it out loud now: we have reduced compilation time from 32.5
+seconds to 4 seconds. That's an **8x reduction in our compile time**. A
+pretty good change taking into account that we've done changes under 30 lines
+of code.
 
 ## Conclusion
 
-TBD
+Shapeless is a great library that enables use cases that before were too
+difficult for the majority of Scala developers. These use cases save a lot of
+boilerplate.
+
+Shapeless has relieved these users from learning macros and getting familiar
+with the internals of the compiler to do both basic generic and advanced
+typelevel programming in Scala.
+
+However, the techniques used in Shapeless cause slow compilation times and
+may give an impression that the Scala compiler is terribly slow. These
+techniques are not specific to Shapeless and may happen in other libraries
+that use a lot of implicits and macros.
+
+In all these use cases, the slowness is most likely to be caused by a
+unintentional misuse of the APIs provided by these frameworks. In this guide,
+we have tried to identify what those issues are and how we can get the best
+of Shapeless and the compiler without compromising our productivity.
+
+We have learned that automatic typeclass derivation, while powerful and
+user-friendly, is likely to materialize implicits for the same type lots of
+times.
+
+We have used a new Scala Center tool (`scalac-profiling`) to profile
+implicits and macros to reduce the compile times of
+[Bloop](https://scalacenter.github.io/bloop/) by **8x**.
+
+Finally, we have gotten a little bit more familiar about the way automatic
+typeclass derivation interacts with macro and implicit searches. It is
+generally agreed that we need to find a better way to bake generation into
+the language to alleviate some of the pitfalls here described.
+
+There's some activity in this area. [Adriaan opened a ticket about it several
+months ago](https://github.com/scala/scala-dev/issues/445), and Miles is
+backporting the heavy machinery from Shapeless properly into the compiler
+(like [by-name
+implicits](https://docs.scala-lang.org/sips/byname-implicits.html)). I
+applaud these efforts.
+
+I believe we still need to find solutions to some of the fundamental problems
+of implicit searches and macros. In particular, being more aggressive in
+caching macro generated trees and baking into the compiler all the required
+knowledge to invalidate caching depending on the kind of macro and call-site.
+
+There's a bright future ahead of us and we are working hard to get there.
+
+In the meanwhile, this blog post aims to provide all the possible data to
+alleaviate the compile times of users that leverage automatic typeclass
+derivation. I hope this blog post helps make your team more productive with
+Scala.
