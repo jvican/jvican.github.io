@@ -50,7 +50,7 @@
 
 <meta itemprop="datePublished" content="2018-05-20T10:00:00&#43;01:00" />
 <meta itemprop="dateModified" content="2018-05-20T10:00:00&#43;01:00" />
-<meta itemprop="wordCount" content="8315">
+<meta itemprop="wordCount" content="8157">
 
 
 
@@ -105,20 +105,21 @@ the optimizations here presented can be migrated to other Scala projects too.</p
 <li>changed a few lines of code to get <em>much</em> better compile times.</li>
 </ol>
 
-<p>A major part of this post goes to discussing <strong>the cost of implicit search
-and macro expansions</strong>, describe what automatic typeclass derivation is and
-why both slow down compilation times.</p>
+<p><code>scalac-profiling</code>, a new compiler plugin that complements the recent
+statistics infrastructure in <code>scalac</code>, helps us find out the <strong>the cost of
+implicit search and macro expansions</strong> and mitigate it to get faster compile
+times.</p>
 
 <p>After reading the blog post, you should understand:</p>
 
 <ul>
-<li>Why Shapeless-based code is prone to slow compilation times.</li>
+<li>How to use <code>scalac-profiling</code> to replicate a similar analysis.</li>
+<li>Why Shapeless-based code is prone to slow compilation times if not used with
+care.</li>
 <li>How you can replicate a similar analysis of compilation times on code that
 abuses implicit searches and macros.</li>
 <li>How implicit search and macros interact in unexpected ways that hurt
 productivity and how you can optimize their interaction.</li>
-<li>Why semi-automatic typeclass derivation is preferred over automatic typeclass
-derivation, and how the latter should only be used with extreme care.</li>
 </ul>
 
 <p>The most important take-away from this guide is that <strong>you should not take
@@ -126,31 +127,69 @@ slow Scala compilation times for granted</strong>.</p>
 
 <p>In most of the cases, slow compilations originate from either an
 unintentional misuse of a macro-based library, or an inefficient
-implementation of a macro. You better catch them early so that they don&rsquo;t
-kill the productivity of your team.</p>
+implementation of a macro. You can fight them to ensure the productivity of
+your team isn&rsquo;t compromised.</p>
 
-<h2 id="tl-dr">TL;DR</h2>
+<h2 id="high-level-overview">High-level overview</h2>
 
-<p>We use a compiler plugin (<code>scalac-profiling</code>) and the new statistics
-infrastructure merged in Scala <code>2.12.5</code> to achieve speedups of 8x in the
-compilation time of one of the modules of
-<a href="https://scalacenter.github.io/bloop/">Bloop</a>, an application that makes an
-intense use of automatic typeclass derivation via Shapeless.</p>
+<p>The use of the new <code>scalac-profiling</code> and the compiler statistics merged in
+Scala <code>2.12.5</code> (funded by the Scala Center) helps us get a 8x speedup in the
+compile times of a module of <a href="https://scalacenter.github.io/bloop/">Bloop</a>,
+which uses automatic typeclass derivation via Shapeless to derive CLI
+parsers.</p>
 
 <p>You can expect similar speedups in either applications that rely on Shapeless
 to do automatic typeclass derivation or applications that make a heavy use of
 implicits and macros.</p>
 
-<p>This is a blog post rich in details and so it may take you some time to
-digest fully. If you&rsquo;re only interested in the TL;DR version and are already
-familiar with the causes of slow compilation times in Shapeless-like code,
-skip the context and <a href="#the-cost-of-implicit-macros">check out directly the detective work</a>.</p>
+<h3 id="pointers-to-read-the-article">Pointers to read the article</h3>
 
-<p>If you want to apply the same procedure in your project, reading the whole
-blog post is <strong>highly recommended</strong>.</p>
+<p>If you want to apply the same technique in your Scala projects or you have no
+previous knowledge of the reasons why automatic typeclass derivation is slow,
+reading the whole blog post is <strong>highly recommended</strong>.</p>
 
-<p>The <a href="#conclusion">Conclusion</a> sums up all we&rsquo;ve achieved
-throught the blog post, though the interesting bits are in the details.</p>
+<p>If you&rsquo;re already familiar with the source of inefficiencies or you don&rsquo;t
+have much time, jump directly to the [detective work](#the-quest-for-optimization that digs into the profiling data.</p>
+
+<h2 id="toc">TOC</h2>
+
+<ul>
+<li><a href="#high-level-overview">High-level overview</a>
+
+<ul>
+<li><a href="#pointers-to-read-the-article">Pointers to read the article</a></li>
+</ul></li>
+<li><a href="#toc">TOC</a></li>
+<li><a href="#the-codebase">The codebase</a></li>
+<li><a href="#the-setup-and-workflow">The setup and workflow</a>
+
+<ul>
+<li><a href="#compiling-the-codebase">Compiling the codebase</a></li>
+<li><a href="#warm-up-the-compiler">Warm up the compiler</a></li>
+</ul></li>
+<li><a href="#the-analysis">The analysis</a>
+
+<ul>
+<li><a href="#compiler-statistics">Compiler statistics</a></li>
+<li><a href="#setting-statistics-up">Setting statistics up</a></li>
+<li><a href="#walking-into-the-lions-den">Walking into the lion&rsquo;s den</a></li>
+<li><a href="#the-troublemaker">The troublemaker</a></li>
+<li><a href="#an-initial-exploration-of-the-data">An initial exploration of the data</a></li>
+<li><a href="#a-profiling-plugin-for-scalac">A profiling plugin for <code>scalac</code></a></li>
+<li><a href="#the-first-visual">The first visual</a></li>
+<li><a href="#typeclass-derivation-for-the-win">Typeclass derivation for the win</a></li>
+<li><a href="#the-cost-of-implicit-macros">The cost of implicit macros</a></li>
+<li><a href="#the-world-of-shapeless">The world of shapeless</a></li>
+<li><a href="#quick-derivation-example">Quick derivation example</a></li>
+<li><a href="#the-quest-for-optimization">The quest for optimization</a></li>
+<li><a href="#reading-the-implicit-search-flamegraph">Reading the implicit search flamegraph</a></li>
+<li><a href="#a-tour-through-shapelesss-generic">A tour through Shapeless&rsquo;s <code>Generic</code></a></li>
+<li><a href="#the-strict-lazy-macro-doesnt-like-the-aux-pattern">The Strict/Lazy macro doesn&rsquo;t like the aux pattern</a></li>
+<li><a href="#deduplicating-more-expansions">Deduplicating more expansions</a></li>
+<li><a href="#getting-the-final-results">Getting the final results</a></li>
+</ul></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul>
 
 <p>This is a long blog post. Put on your profiling hat and let&rsquo;s get our hands
 dirty!</p>
@@ -158,39 +197,13 @@ dirty!</p>
 <h2 id="the-codebase">The codebase</h2>
 
 <p><a href="https://github.com/scalacenter/bloop">Bloop</a> is a <em>build-tool-agnostic</em>
-compilation server with a focus on developer productivity that I develop at
+compilation server with a focus on developer productivity that I developed at
 the Scala Center together with <a href="https://github.com/Duhemm">Martin Duhem</a>. It
 gives you about ~20-25% faster compilation times than sbt, and we plan on
 further improving the performance of both batch and incremental compilation
 in the next month.</p>
 
-<p>Bloop is a small codebase with 10000 lines of Scala code.</p>
-
-<pre><code class="language-bash">jvican in /data/rw/code/scala/loop                                                                                                                                                                   [22:53:34] 
-&gt; $ loc --exclude zinc/* --exclude benchmark-bridge/*
------------------------------------------------------------
- Language    Files     Lines     Blank   Comment    Code
------------------------------------------------------------
- Scala         129     12383      1597      1210      9576
- JavaScript     30     12264      1643      1519      9102
- Markdown       72      9132      1079         0      8053
- CSS            10      5117       750        47      4320
- JSON           49      3028        10         0      3018
- Java           46      5576       825      1998      2753
- Python          4      1407       212        71      1124
- HTML           34      1223        74        47      1102
- C               1       899       133       184       582
- XML             5       285        26         2       257
- Bourne Shell    8       249        43        19       187
- Plain Text      1       203        33         0       170
- Protobuf        1       151        32        20        99
- Toml            3        83         5         2        76
- Makefile        2        39         7         8        24
- YAML            1        24         6         1        17
------------------------------------------------------------
- Total         396     52063      6475      5128     40460
------------------------------------------------------------
-</code></pre>
+<p>Bloop is a small codebase with ~10000 lines of Scala code.</p>
 
 <p>It has three main submodules:</p>
 
@@ -210,8 +223,8 @@ it should compile in ~4 seconds.</p>
 <p><code>frontend</code> depends on
 <a href="https://github.com/alexarchambault/case-app/"><code>case-app</code></a>, a command-line
 parsing library for Scala that uses
-<a href="https://github.com/milessabin/shapeless">Shapeless</a>. In our case, the reason
-why the compilation takes 30 seconds.</p>
+<a href="https://github.com/milessabin/shapeless">Shapeless</a>. This library is
+excellent, but slows our compilation down to 30 seconds.</p>
 
 <p>Waiting 30 seconds for a change to take effect (even under incremental
 compilation) is a no-go. It may not seem much, but this kind of wait kills
@@ -223,8 +236,8 @@ adding complete test suites (the more tests I add the more I need to wait to
 compile) or making experiments in the code. That has rendered my experience
 as a Scala developer less pleasant.</p>
 
-<p>But this time I decided to fight Bloop compilation times, and documented my
-experience so that you can too.</p>
+<p>And that deserves putting some time aside to find out how we can make Bloop
+compile times faster.</p>
 
 <h2 id="the-setup-and-workflow">The setup and workflow</h2>
 
@@ -244,24 +257,8 @@ git checkout v1.0.0-M10
 sbt bloopInstall
 </code></pre>
 
-<p>After that, running <code>bloop about</code> in the base directory of the Bloop codebase should work.</p>
-
-<pre><code class="language-bash">jvican in /data/rw/code/scala/loop
-&gt; $ bloop about
-  _____            __         ______           __
- / ___/_________ _/ /___ _   / ____/__  ____  / /____  _____
- \__ \/ ___/ __ `/ / __ `/  / /   / _ \/ __ \/ __/ _ \/ ___/
-___/ / /__/ /_/ / / /_/ /  / /___/ /__/ / / / /_/ /__/ /
-____/\___/\__,_/_/\__,_/   \____/\___/_/ /_/\__/\___/_/
-
-Bloop-frontend is made with love at the Scala Center &lt;3
-
-Bloop-frontend version    `1.0.0-M10`
-Zinc version              `1.1.7+62-0f4ad9d5`
-Scala version             `2.12.4`
-
-It is maintained by Martin Duhem, Jorge Vicente Cantero.
-</code></pre>
+<p>After that, run <code>bloop projects</code> in the base directory to check the projects
+in your build.</p>
 
 <h3 id="compiling-the-codebase">Compiling the codebase</h3>
 
@@ -269,9 +266,11 @@ It is maintained by Martin Duhem, Jorge Vicente Cantero.
 and see how the compilation times behave after applying our changes.</p>
 
 <p>I recommend cleaning and compiling <code>frontend</code> sequentially at least 10 times
-to get a stable hot compiler. After that, we&rsquo;ll do incremental compilation in
-the files we change. I&rsquo;ve done this for convenience; you should be able to
-replicate the results with full compilation.</p>
+to get a stable hot compiler. Every change we&rsquo;ll do to the codebase from now
+on will require a full compile (running <code>clean</code> before <code>compile</code>) to get
+stable implicit search and performance results. This methodology will
+simplify reading and interpreting the results without taking into account
+what incremental compilation is doing.</p>
 
 <h4 id="warm-up-the-compiler">Warm up the compiler</h4>
 
@@ -310,23 +309,10 @@ about compiler profiling. Morgan Stanley, the creator of the document,
 proposed the Scala Center to develop tools to help diagnose compilation
 bottlenecks.</p>
 
-<hr />
-
-<p>(For those that don&rsquo;t know how we work, Advisory Board members can make
-project recommendations to the Scala Center. Every member encourages action
-on the problems that are most important to them, and we take those
-recommendations into account when deciding how to allocate our resources.
-Donating to the Scala Center has its perks; your voice as a Scala shop can be
-heard and we can work to fix the things that upset you and the Scala
-community.)</p>
-
-<p>Back then, I was interested in this topic and so the proposal was assigned to me.
-My work on the compiler revolved around fixing the broken
-implementation of statistics in 2.11.x and reducing the instrumentation
-overhead. Afterwards, I created the tooling I use in this guide to profile
-Scala programs.</p>
-
-<hr />
+<p>I was interested in this topic and so the proposal was assigned to me. My
+work on the compiler revolved around fixing the broken implementation of
+statistics in 2.11.x, creating better profiling tools and reducing the
+instrumentation overhead in the statistics engine.</p>
 
 <p>Compiler statistics have both timers and counters that record data about
 expensive compiler operations like subtype checks, finding members, implicit
@@ -336,7 +322,9 @@ perfect starting point to have a high-level idea of what&rsquo;s going on.</p>
 <h4 id="setting-statistics-up">Setting statistics up</h4>
 
 <p>Enable compiler statistics by adding the <code>-Ystatistics</code> compiler flag to the
-project you want to benchmark. <em>Note that you need to use Scala 2.12.5 or
+project you want to benchmark.</p>
+
+<p><em>Note that you need to use Scala 2.12.5 or
 above</em>. I <strong>highly</strong> recommend using the latest version. At the moment of
 this writing, that&rsquo;s <code>2.12.6</code>.</p>
 
@@ -344,6 +332,10 @@ this writing, that&rsquo;s <code>2.12.6</code>.</p>
 <code>.bloop/frontend.json</code> json configuration file. When you save, Bloop will
 automatically pick up your changes and add the compiler option without the
 need of a <code>reload</code>.</p>
+
+<p>(If you use sbt, add <code>scalacOptions in Compile += &quot;-Ystatistics&quot;</code> to your
+project settings. If you want to profile tests scope it to <code>Test</code> instead of
+<code>Compile</code>.)</p>
 
 <p>Run <code>bloop compile frontend -w --reporter scalac</code> (we use the default scalac
 reporter for clarity) and have a look at the data. The output of the
@@ -526,12 +518,14 @@ directory of the cloned bloop repository.</p>
 
 <p>The first two flags set up the compiler plugin.</p>
 
-<p>The flag <code>no-profiledb</code> disables the generation of <code>profiledb</code>s and
-<code>sourceroot</code> tells the plugin the base directory of the project. The
-profiledb is only required when we process the data with other tools, so by
-disabling it we keep the overhead of the plugin to the bare minimum.</p>
+<p>The flag <code>-P:scalac-profiling:no-profiledb</code> disables the generation of
+<code>profiledb</code>s and <code>-P:scalac-profiling:sourceroot</code> tells the plugin the base
+directory of the project. The profiledb is only required when we process the
+data with other tools, so by disabling it we keep the overhead of the plugin
+to the bare minimum.</p>
 
-<p>The flag <code>show-profiles</code> displays the following data in the compilation logs:</p>
+<p>The flag <code>-P:scalac-profiling:show-profiles</code> displays the following data in
+the compilation logs:</p>
 
 <ul>
 <li>Implicit searches by position. Useful to know how many implicit searches were
@@ -574,8 +568,6 @@ that, we&rsquo;re going to create an implicit search flamegraph. Grep for the li
 data.</p>
 
 <hr />
-
-<h5 id="learn-to-generate-a-flamegraph">Learn to generate a flamegraph</h5>
 
 <p>To generate a flamegraph, clone
 <a href="https://github.com/scalacenter/scalac-profiling">scalacenter/scalac-profiling</a>,
@@ -1141,7 +1133,7 @@ entry for case-app core we&rsquo;re using in <code>frontend.json</code>. Afterwa
 
 <p>This change may cause errors since the use of <code>Strict</code> and <code>Lazy</code> disable the
 implicit divergence checks of the compiler, which can give false positives
-when working with Shapeless data structures (short story).</p>
+when working with Shapeless data structures (this is the short story).</p>
 
 <pre><code>/data/rw/code/scala/loop/frontend/src/main/scala/bloop/Bloop.scala:22:22:could not find implicit value for parameter parser: caseapp.Parser[bloop.cli.CliOptions]
 object Bloop extends CaseApp[CliOptions] {
@@ -1152,7 +1144,7 @@ object Bloop extends CaseApp[CliOptions] {
                      ^
 </code></pre>
 
-<p>The error can be mitigated by importing <code>coParser</code> and <code>cliParser</code> from
+<p>The error can be fixed by importing <code>coParser</code> and <code>cliParser</code> from
 <code>CliParsers</code> in the <code>Bloop.scala</code> source file. But doing so would change our
 baseline (because we&rsquo;re caching <code>Parser[CliOptions]</code> in another call-site
 that isn&rsquo;t our initial <code>CliParsers</code>). So let&rsquo;s remove the new case-app
@@ -1211,7 +1203,11 @@ experienced with the codebase have a look at it. If we&rsquo;re lucky, someone w
 fix this issue upstream soon and we&rsquo;ll benefit from this speed up when we
 upgrade.</p>
 
-<h4 id="removing-more-repetition">Removing more repetition</h4>
+<p>(After discussing this issue with <a href="https://github.com/milessabin/">Miles</a> we
+both agree the strict/lazy macro is not handling refinement types correctly
+and that this performance penalty is a bug.)</p>
+
+<h4 id="deduplicating-more-expansions">Deduplicating more expansions</h4>
 
 <p>There are still too many repeated tower of implicits in our flamegraph.
 <code>CommandsParser</code> and <code>CommandsMessages</code> are deriving <code>Parser</code>s for every type
