@@ -1,24 +1,34 @@
 +++
-title = "Reduce compile times of macros and implicits"
-description = "A tour on profiling compilation times to understand the cost of automatic typeclass derivation with a focus on Shapeless."
+title = "Using `scalac-profiling` to profile and reduce compile times of typeclass derivation"
+description = "A tour on profiling compile times with `scalac-profiling` to understand and reduce the cost of automatic typeclass derivation."
 date = "2018-05-20T10:00:00+01:00"
 +++
 
-Today I explain how I've reduced compilation times dramatically
-in one of the projects I've been working for the past months.
-This project uses automatic typeclass derivation via Shapeless and I believe
-the optimizations here presented can be migrated to other Scala projects too.
+Today I write about how I've reduced compilation times of a project that uses
+typeclass derivation to create parsers for CLIs (command-line interfaces)
+with Shapeless.
 
-My goal is to explain how I:
+Typeclass derivation makes a heavy use of macros and implicit search to reduce
+boilerplate and reduce code maintenance, but has a high cost on compile times.
 
-1. identified the bottleneck of compilation;
-1. profiled the compilation time of my application; and,
-1. changed a few lines of code to get *much* better compile times.
+In most of the cases, slow compilations of this common use case in the Scala
+community originate from either an unintentional misuse of a macro-based
+library, or inefficient macro implementations.
 
-`scalac-profiling`, a new compiler plugin that complements the recent
-statistics infrastructure in `scalac`, helps us find out the **the cost of
-implicit search and macro expansions** and mitigate it to get faster compile
-times.
+Until now, Scala developers could not reduce the cost of the slow compilation
+times because tooling to profile compile times was lacking and knowledge of these issues limited.
+
+My goal in this blog post is to give you a walkthrough on how to find and reduce these compile times with `scalac-profiling`.
+
+`scalac-profiling` is a new Scala Center compiler plugin to complement my
+recent work on the compiler statistics infrastructure merged in 2.12.5. In
+this guide, I use the plugin to speed up a
+module of [Bloop](https://scalacenter.github.io/bloop/), a project I've been
+recently working on, toachieve a **8x** speedup in compile times.
+
+The analysis and optimizations here presented can be migrated to any other
+Scala project that derives a lot of types at compile time or makes a heavy
+use of implicits and macros.
 
 After reading the blog post, you should understand:
 
@@ -31,24 +41,8 @@ After reading the blog post, you should understand:
   productivity and how you can optimize their interaction.
 
 The most important take-away from this guide is that **you should not take
-slow Scala compilation times for granted**.
-
-In most of the cases, slow compilations originate from either an
-unintentional misuse of a macro-based library, or an inefficient
-implementation of a macro. You can fight them to ensure the productivity of
-your team isn't compromised.
-
-## High-level overview
-
-The use of the new `scalac-profiling` and the compiler statistics merged in
-Scala `2.12.5` (funded by the Scala Center) helps us get a 8x speedup in the
-compile times of a module of [Bloop](https://scalacenter.github.io/bloop/),
-which uses automatic typeclass derivation via Shapeless to derive CLI
-parsers.
-
-You can expect similar speedups in either applications that rely on Shapeless
-to do automatic typeclass derivation or applications that make a heavy use of
-implicits and macros.
+slow Scala compile times for granted**. It's worth investigating why slow
+compiles happens as we can often reduce them on our side!
 
 ### Pointers to read the article
 
@@ -63,8 +57,6 @@ the profiling data.
 
 ## TOC
 
-- [High-level overview](#high-level-overview)
-  - [Pointers to read the article](#pointers-to-read-the-article)
 - [TOC](#toc)
 - [The codebase](#the-codebase)
 - [The setup and workflow](#the-setup-and-workflow)
