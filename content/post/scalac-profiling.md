@@ -24,7 +24,7 @@ My goal in this blog post is to give you a walkthrough on how to find and reduce
 recent work on the compiler statistics infrastructure merged in 2.12.5. In
 this guide, I use the plugin to speed up a
 module of [Bloop](https://scalacenter.github.io/bloop/), a project I've been
-recently working on, toachieve a **8x** speedup in compile times.
+recently working on, to achieve a **8x** speedup in compile times.
 
 The analysis and optimizations here presented can be migrated to any other
 Scala project that derives a lot of types at compile time or makes a heavy
