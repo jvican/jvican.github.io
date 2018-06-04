@@ -12,14 +12,14 @@
     
     
     <item>
-      <title>Reduce compile times of macros and implicits</title>
-      <link>https://jvican.github.io/post/reduce-compile-times/</link>
+      <title>Using `scalac-profiling` to profile and reduce compile times of typeclass derivation</title>
+      <link>https://jvican.github.io/post/scalac-profiling/</link>
       <pubDate>Sun, 20 May 2018 10:00:00 +0100</pubDate>
       
-      <guid>https://jvican.github.io/post/reduce-compile-times/</guid>
-      <description>Today I explain how I&amp;rsquo;ve reduced compilation times dramatically in one of the projects I&amp;rsquo;ve been working for the past months. This project uses automatic typeclass derivation via Shapeless and I believe the optimizations here presented can be migrated to other Scala projects too.
-My goal is to explain how I:
- identified the bottleneck of compilation; profiled the compilation time of my application; and, changed a few lines of code to get much better compile times.</description>
+      <guid>https://jvican.github.io/post/scalac-profiling/</guid>
+      <description>Today I write about how I&amp;rsquo;ve reduced compilation times of a project that uses typeclass derivation to create parsers for CLIs (command-line interfaces) with Shapeless.
+Typeclass derivation makes a heavy use of macros and implicit search to reduce boilerplate and reduce code maintenance, but has a high cost on compile times.
+In most of the cases, slow compilations of this common use case in the Scala community originate from either an unintentional misuse of a macro-based library, or inefficient macro implementations.</description>
     </item>
     
     <item>
