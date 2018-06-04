@@ -1,5 +1,5 @@
 +++
-title = "Using `scalac-profiling` to profile and reduce compile times of typeclass derivation"
+title = "Profiling and reducing compile times of typeclass derivation"
 description = "A tour on profiling compile times with `scalac-profiling` to understand and reduce the cost of automatic typeclass derivation."
 date = "2018-05-20T10:00:00+01:00"
 +++
