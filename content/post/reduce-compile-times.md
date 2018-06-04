@@ -1044,7 +1044,8 @@ upgrade.
 
 (After discussing this issue with [Miles](https://github.com/milessabin/) we
 both agree the strict/lazy macro is not handling refinement types correctly
-and that this performance penalty is a bug.)
+and that this performance penalty is a bug. This bug will most likely be fixed
+in a future version of Shapeless after 2.3.3 for all its users.)
 
 #### Deduplicating more expansions
 
