@@ -69,7 +69,7 @@ have much time, jump directly to the [detective work]({{< ref
 - [The setup and workflow](#the-setup-and-workflow)
   - [Compiling the codebase](#compiling-the-codebase)
     - [Warm up the compiler](#warm-up-the-compiler)
-- [The analysis](#the-analysis)
+- [The profiling toolkit and theory](#the-profiling-toolkit-and-theory)
   - [Compiler statistics](#compiler-statistics)
     - [Setting statistics up](#setting-statistics-up)
   - [Walking into the lion's den](#walking-into-the-lions-den)
@@ -81,7 +81,7 @@ have much time, jump directly to the [detective work]({{< ref
     - [The cost of implicit macros](#the-cost-of-implicit-macros)
     - [The world of shapeless](#the-world-of-shapeless)
     - [Quick derivation example](#quick-derivation-example)
-  - [The quest for optimization](#the-quest-for-optimization)
+- [The quest for optimization](#the-quest-for-optimization)
     - [Reading the implicit search flamegraph](#reading-the-implicit-search-flamegraph)
     - [A tour through Shapeless's `Generic`](#a-tour-through-shapelesss-generic)
     - [The Strict/Lazy macro doesn't like the aux pattern](#the-strict-lazy-macro-doesnt-like-the-aux-pattern)
@@ -179,7 +179,7 @@ for i in {1..10}; do
 done
 ```
 
-## The analysis
+## The profiling toolkit and theory
 
 The first step to analyze your compilation times is that you set your
 intuitions aside. We're going to look at the raw compiler data with fresh
@@ -635,7 +635,8 @@ required in every step of the inductive process.
 Remember that `frontend` was expanding 44500 macros and how intense was
 typechecking? Well, now we have a faint idea why.
 
-### The quest for optimization
+
+## The quest for optimization
 
 We now have a clearer idea what we're after. `caseapp.core.Parser` is just an
 standard typeclass that is automatically materialized by Shapeless

@@ -50,7 +50,7 @@
 
 <meta itemprop="datePublished" content="2018-05-20T10:00:00&#43;01:00" />
 <meta itemprop="dateModified" content="2018-05-20T10:00:00&#43;01:00" />
-<meta itemprop="wordCount" content="8157">
+<meta itemprop="wordCount" content="8163">
 
 
 
@@ -167,7 +167,7 @@ have much time, jump directly to the [detective work](#the-quest-for-optimizatio
 <li><a href="#compiling-the-codebase">Compiling the codebase</a></li>
 <li><a href="#warm-up-the-compiler">Warm up the compiler</a></li>
 </ul></li>
-<li><a href="#the-analysis">The analysis</a>
+<li><a href="#the-profiling-toolkit-and-theory">The profiling toolkit and theory</a>
 
 <ul>
 <li><a href="#compiler-statistics">Compiler statistics</a></li>
@@ -181,7 +181,10 @@ have much time, jump directly to the [detective work](#the-quest-for-optimizatio
 <li><a href="#the-cost-of-implicit-macros">The cost of implicit macros</a></li>
 <li><a href="#the-world-of-shapeless">The world of shapeless</a></li>
 <li><a href="#quick-derivation-example">Quick derivation example</a></li>
-<li><a href="#the-quest-for-optimization">The quest for optimization</a></li>
+</ul></li>
+<li><a href="#the-quest-for-optimization">The quest for optimization</a>
+
+<ul>
 <li><a href="#reading-the-implicit-search-flamegraph">Reading the implicit search flamegraph</a></li>
 <li><a href="#a-tour-through-shapelesss-generic">A tour through Shapeless&rsquo;s <code>Generic</code></a></li>
 <li><a href="#the-strict-lazy-macro-doesnt-like-the-aux-pattern">The Strict/Lazy macro doesn&rsquo;t like the aux pattern</a></li>
@@ -281,7 +284,7 @@ what incremental compilation is doing.</p>
 done
 </code></pre>
 
-<h2 id="the-analysis">The analysis</h2>
+<h2 id="the-profiling-toolkit-and-theory">The profiling toolkit and theory</h2>
 
 <p>The first step to analyze your compilation times is that you set your
 intuitions aside. We&rsquo;re going to look at the raw compiler data with fresh
@@ -745,7 +748,7 @@ required in every step of the inductive process.</p>
 <p>Remember that <code>frontend</code> was expanding 44500 macros and how intense was
 typechecking? Well, now we have a faint idea why.</p>
 
-<h3 id="the-quest-for-optimization">The quest for optimization</h3>
+<h2 id="the-quest-for-optimization">The quest for optimization</h2>
 
 <p>We now have a clearer idea what we&rsquo;re after. <code>caseapp.core.Parser</code> is just an
 standard typeclass that is automatically materialized by Shapeless
