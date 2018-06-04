@@ -57,8 +57,9 @@ previous knowledge of the reasons why automatic typeclass derivation is slow,
 reading the whole blog post is **highly recommended**.
 
 If you're already familiar with the source of inefficiencies or you don't
-have much time, jump directly to the [detective work]({{< ref
-"#the-quest-for-optimization" >}} that digs into the profiling data.
+have much time, jump directly to the
+[detective work]({{< ref "#the-quest-for-optimization" >}}) that digs into
+the profiling data.
 
 ## TOC
 
