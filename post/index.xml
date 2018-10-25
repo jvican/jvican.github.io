@@ -6,10 +6,20 @@
     <description>Recent content in Posts on jvican</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Sun, 20 May 2018 10:00:00 +0100</lastBuildDate>
+    <lastBuildDate>Thu, 25 Oct 2018 20:29:12 +0200</lastBuildDate>
     
 	<atom:link href="https://jvican.github.io/post/index.xml" rel="self" type="application/rss+xml" />
     
+    
+    <item>
+      <title>Overload methods with extra parameter lists</title>
+      <link>https://jvican.github.io/post/implicit-parameter-overload/</link>
+      <pubDate>Thu, 25 Oct 2018 20:29:12 +0200</pubDate>
+      
+      <guid>https://jvican.github.io/post/implicit-parameter-overload/</guid>
+      <description>Have you ever asked yourself if you can enrich a method that you need to implement in a class to receive more information from the call site?
+For example, let&amp;rsquo;s say you have method debug in a logger interface AbstractLogger. Can we implement the logger interface and at the same time overload debug with another version that takes more parameters every time the users of our API call debug?</description>
+    </item>
     
     <item>
       <title>Profiling and reducing compile times of typeclass derivation</title>
