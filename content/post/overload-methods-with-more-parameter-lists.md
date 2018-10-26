@@ -232,7 +232,7 @@ We can fix it by passing the context either implicitly or explicitly.
 object MyApp {
   def main(args: Array[String]): Unit = {
     println(
-      "Running demo application for https://jorge.vican.me/post/implicit-parameter-overload/")
+      "Running demo application for https://jorge.vican.me/post/overload-methods-with-more-parameter-lists/")
     implicit val ctx: DebugContext = DebugContext.Ctx1
     val logger = new SimpleLogger
     logger.debug("This is a debug message")

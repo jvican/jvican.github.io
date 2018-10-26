@@ -13,10 +13,10 @@
     
     <item>
       <title>Overload methods with extra parameter lists</title>
-      <link>https://jvican.github.io/post/implicit-parameter-overload/</link>
+      <link>https://jvican.github.io/post/overload-methods-with-more-parameter-lists/</link>
       <pubDate>Thu, 25 Oct 2018 20:29:12 +0200</pubDate>
       
-      <guid>https://jvican.github.io/post/implicit-parameter-overload/</guid>
+      <guid>https://jvican.github.io/post/overload-methods-with-more-parameter-lists/</guid>
       <description>Have you ever asked yourself if you can enrich a method that you need to implement in a class to receive more information from the call site?
 For example, let&amp;rsquo;s say you have method debug in a logger interface AbstractLogger. Can we implement the logger interface and at the same time overload debug with another version that takes more parameters every time the users of our API call debug?</description>
     </item>
