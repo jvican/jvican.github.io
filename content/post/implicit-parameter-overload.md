@@ -214,9 +214,10 @@ we want to support in our API (in this case `BloopLogger`), the logger
 implementations only need to define the enriched `debug` method.
 
 Users of this API **will not** be able to call the simple `debug` **unless**
-they do an upcast to the third-party logger `Logger`. This is intended -- the
-goal is to have a good default, not to make it completely impossible to call
-the simple debug, so make sure that it still has a sensible implementation.
+they do an upcast to the third-party logger `AbstractLogger`. This is intended
+-- the goal is to have a good default, not to make it completely impossible to
+call the simple debug, so make sure that it still has a sensible
+implementation.
 
 In Bloop's case, the third-party logger API is never exposed and I recommend
 doing so in your application or library if you can.
