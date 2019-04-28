@@ -21,6 +21,8 @@
 <link rel="stylesheet" type="text/css" media="all" href="../css/styles.css">
 <link rel="stylesheet" type="text/css" media="all" href="../css/syntax-highlighting.css">
 <link rel="stylesheet" type="text/css" media="all" href="../css/et-book.css">
+<link href="//cloud.typenetwork.com/projects/3124/fontface.css/" rel="stylesheet" type="text/css">
+
 <title>How often do we change our sbt builds?</title>
 </head>
 <body>

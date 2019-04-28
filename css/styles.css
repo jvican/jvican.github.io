@@ -818,7 +818,7 @@ a.pdf img:hover {
 }
 
 pre {
-  font-family: Input Mono, Consolas, Courier, monospace;
+  font-family: Input Mono Nar Reg, Input Mono, Consolas, Courier, monospace;
   line-height: 1.35;
   margin-right: -2rem;
   background: #fbfbfb;
@@ -922,4 +922,16 @@ sup {
   margin-top: 0.9rem;
   margin-bottom: 0.6rem;
   line-height: 1;
+}
+
+/***************************************************************
+These styles are subject to the following license agreement(s):
+
+https://store.typenetwork.com/cart/eula/djr
+***************************************************************/
+
+.inputmononarrowregular {
+  font-family: "Input Mono Nar Reg";
+  font-style: Normal;
+  font-weight: Normal;
 }
