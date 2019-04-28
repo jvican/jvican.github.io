@@ -920,6 +920,10 @@ sup {
   line-height: 1;
 }
 
+body>p:first-child {
+  display: none;
+}
+
 /***************************************************************
 These styles are subject to the following license agreement(s):
 
