@@ -829,18 +829,14 @@ pre {
   overflow-x: auto;
 }
 
-.sourceLine {
+pre .sourceCode {
+  overflow-x: auto !important;
   font-size: 0.75rem !important;
   line-height: 1.05em !important;
 }
 
-pre code {
-  font-size: 0.75rem !important;
-  line-height: 1.05em;
-}
-
 code {
-  font-size: 0.8rem;
+  font-size: 0.8rem !important;
 }
 
 ol, ul, pre {
