@@ -818,7 +818,7 @@ a.pdf img:hover {
 }
 
 pre {
-  font-family: Input Mono Nar Reg, Input Mono, Consolas, Courier, monospace;
+  font-family: "Input Mono Nar Reg", "Input Mono", Consolas, Courier, monospace;
   line-height: 1.35;
   margin-right: -2rem;
   background: #fbfbfb;
