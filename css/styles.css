@@ -270,6 +270,11 @@ html {
   height: 100%;
 }
 
+/* Add this so that vscode preview rendered doesn't show a tiny font size */
+.vscode-body {
+  font-size: 19px !important;
+}
+
 body {
   position: relative;
   padding: 0;
@@ -285,7 +290,7 @@ body {
   font-feature-settings: 'liga' 1;
   color: #444;
   -webkit-font-smoothing: subpixel-antialiased;
-  font-family: et-book, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif;
+  font-family: et-book, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif !important;
   /* corrects safari rendering */
 }
 
@@ -437,7 +442,7 @@ ol li {
 }
 
 ol li p {
-  font-family: et-book, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif;
+  font-family: et-book, Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif !important;
 }
 
 ul.btw {
@@ -818,7 +823,7 @@ a.pdf img:hover {
 }
 
 pre {
-  font-family: "Input Mono Nar Reg", "Input Mono", Consolas, Courier, monospace;
+  font-family: "Input Mono Nar Reg", "Input Mono", Consolas, Courier, monospace !important;
   line-height: 1.35;
   margin-right: -2rem;
   background: #fbfbfb;
