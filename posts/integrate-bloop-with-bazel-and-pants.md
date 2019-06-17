@@ -121,7 +121,7 @@ build diagnostics fast (in the order of 50-100ms) and collect class files in
 around 400-500ms, meaning developers feel instant feedback from the build
 tool.
 
-And Bloop will guarantee compilation requests from Bazel and Pants will:
+And Bloop guarantees compilation requests from Bazel and Pants will:
 
 * Trigger a full compile per build target (same output for same input)
 * Never conflict with other client actions

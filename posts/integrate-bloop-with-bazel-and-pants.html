@@ -67,7 +67,7 @@ An article on the motivation and the different strategies to integrate Bloop wit
 </ol>
 <p>An integration with Bloop speeds up local developer workflows by allowing local build clients (such as editors) to trigger incremental compiles while isolating these compiles completely from Bazel or Pants.</p>
 <p>In practice, this means build clients such as Metals can use Bloop to receive build diagnostics fast (in the order of 50-100ms) and collect class files in around 400-500ms, meaning developers feel instant feedback from the build tool.</p>
-<p>And Bloop will guarantee compilation requests from Bazel and Pants will:</p>
+<p>And Bloop guarantees compilation requests from Bazel and Pants will:</p>
 <ul>
 <li>Trigger a full compile per build target (same output for same input)</li>
 <li>Never conflict with other client actions</li>
