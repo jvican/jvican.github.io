@@ -62,6 +62,7 @@ a special focus on developer productivity and compilation performance.
 
 ### Posts
 
+* June 2019. [Integrate Bloop with Bazel and Pants](posts/integrate-bloop-with-bazel-and-pants.html)
 * June 2018. [Speed up compilation times with scalac-profiling](posts/scalac-profiling.html)
 * Oct 2018. [Overload methods with extra parameter lists](posts/overload-methods-with-more-parameter-lists.html)
 * Oct 2017. [How often do we change our sbt build?](posts/git-sbt-analysis.html)

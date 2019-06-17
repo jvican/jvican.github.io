@@ -1,0 +1,229 @@
+<!--*-markdown-*-->
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="author" content="Jorge Vicente Cantero">
+<!-- Change this whenever a new blog post is done -->
+<meta property="og:title" content="Integrate Bloop with Bazel/Pants" />
+<meta property="og:description" content= "" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jvican.github.io/" />
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="jvican"/>
+<meta name="twitter:description" content=""/>
+<meta name="twitter:site" content="@https://www.twitter.com/jvican"/>
+<p><link rel="stylesheet" href="../css/monosocialiconsfont.css"> <link rel="shortcut icon" href="../images/favicon.ico"> <link rel="stylesheet" type="text/css" media="all" href="../css/styles.css"> <link rel="stylesheet" type="text/css" media="all" href="../css/syntax-highlighting.css"> <link rel="stylesheet" type="text/css" media="all" href="../css/et-book.css"> <link href="//cloud.typenetwork.com/projects/3124/fontface.css/" rel="stylesheet" type="text/css"></p>
+<title>
+Integrate Bloop with Bazel/Pants
+</title>
+</head>
+<body>
+<div id="top-stripe">
+
+</div>
+<div>
+<!-- required as a simple wrapper for position:absolute to work -->
+<div class="home-arrow">
+<p><a href="../index.html"> <span>←</span> Back </a></p>
+</div>
+</div>
+<div id="content">
+<div id="doc">
+<div class="hanging-topic" hyphens="none">
+<h2 class="topic">
+Integrate Bloop with Pants/Bazel
+</h3>
+<p hyphens="none">
+An article on the motivation and the different strategies to integrate Bloop with Bazel/Pants.
+</p>
+</div>
+<p>Bloop is a Scala build server that compiles, tests and runs Scala fast.</p>
+<p>Pants and Bazel are scalable language-agnostic build systems. They support Scala and also need to compile, test and run Scala fast.</p>
+<p>Why would we want Bazel and Pants to integrate with Bloop? How could such an integration work given the seemingly competing goals of both tools?</p>
+<p>This article answers these questions and summarizes my excellent discussions with <a href="https://github.com/natansil">Natan</a> (contributor to the Bazel Scala rules @ Wix) and <a href="https://github.com/stuhood">Stu</a>, <a href="https://github.com/cosmicexplorer">Danny</a> and <a href="https://github.com/wiwa">Win</a> (core maintainers of Pants @ Twitter) during <a href="https://www.scaladays.org">Scala Days 2019</a>.</p>
+<h2 id="motivation">Motivation</h2>
+<p>There are <strong>three</strong> main arguments to motivate the integration.</p>
+<h3 id="straight-forward-integration-with-editors">#1: Straight-forward integration with editors</h3>
+<p>Adoption of build tools is limited by how well they integrate with existing developer tools. For example, how well you can use them from an editor.</p>
+<p>Currently, Pants and Bazel only support <a href="https://www.jetbrains.com/idea/">IntelliJ IDEA</a> via their custom IDEA plugins. These integrations are difficult to build, test and maintain.</p>
+<p>Bloop provides Bazel and Pants a quick way to integrate with the vast majority of editors used in the Scala community: <a href="https://www.jetbrains.com/idea/">IntelliJ IDEA</a> via the built-in BSP support in <code>intellij-scala</code> and VS Code, Vim, Emacs, Sublime Text 2, and Atom via <a href="https://www.scala-lang.org/2019/04/16/metals.html">Metals</a>.</p>
+<p>The integration is easy to build, test and maintain, it relieves build tool maintainers from implementing specific editor support for users and allows sharing improvements in editors support across build tools.</p>
+<h3 id="faster-local-developer-workflows">#2: Faster local developer workflows</h3>
+<p>Bazel and Pants promise reproducible builds. Reproducibility is a key property of builds. It gives developers confidence to deploy their code and reason about errors and bugs.</p>
+<p>To make compilation reproducible, incremental compilation is disabled and build requests trigger a full compilation of a target <code>foo</code> every time:</p>
+<ol type="1">
+<li>One of the build inputs of <code>foo</code> is modified (such as a source)</li>
+<li>Users ask for build tool diagnostics or a compilation of <code>foo</code></li>
+</ol>
+<p>A best practice in Bazel and Pants is to create fine-grained build targets of a handful of sources. Fine-grained build targets help reduce the overhead of full compiles: they compile faster, increase parallel compilations and enable incremental compilation at the build target level.</p>
+<p>However, even under ideal compilation times of 1 or 2 seconds per compiled build target, there are scenarios where instant feedback cannot be achieved:</p>
+<ol type="1">
+<li>Language servers such as Metals that forward diagnostics from Bazel and Pants will take 1 or 2 seconds at best to act on diagnostics, making the slowdown noticeable to users.
+<ul>
+<li>Metals also needs class files/semanticdb files to provide a rich editing experience (go to definition, find all references).</li>
+</ul></li>
+<li>Common scenarios such as changing a binary API can trigger many compilations downstream that take a long time to finish, slowing down even more the build diagnostics in the editor.</li>
+</ol>
+<p>An integration with Bloop speeds up local developer workflows by allowing local build clients (such as editors) to trigger incremental compiles while isolating these compiles completely from Bazel or Pants.</p>
+<p>In practice, this means build clients such as Metals can use Bloop to receive build diagnostics fast (in the order of 50-100ms) and collect class files in around 400-500ms, meaning developers feel instant feedback from the build tool.</p>
+<p>And Bloop will guarantee compilation requests from Bazel and Pants will:</p>
+<ul>
+<li>Trigger a full compile per build target (same output for same input)</li>
+<li>Never conflict with other client actions</li>
+<li>Can be reused by clients that want fast, incremental compiles</li>
+</ul>
+<p>(These guarantees are unlocked by the latest <a href="tweet-1.3.2">Bloop v1.3.2 release</a>.)</p>
+<p>Integrating with Bloop brings Bazel/Pants users the best of both “worlds”:</p>
+<ol type="1">
+<li>Bazel and Pants can still offer <em>reproducible builds</em> to users with <em>no cache pollution</em>. The cache engine in Bazel and Pants only gets to “see” class files produced by full compilations.</li>
+<li>Developers sensitive to slow feedback in the editor can opt-in for incremental compiles from their editor in a local machine. In case of rare incremental errors, they can trigger a compilation from the build tool manually to restore a clean state.</li>
+<li>Developers that don’t want to compromise build reproducibility to get faster workflows can enable a Bloop configuration setting to keep using full compiles from their editor, while still getting faster compiles than they would if they used the compilation engine from Pants or Bazel.</li>
+</ol>
+<h3 id="state-of-the-art-compilation-engine">#3: State-of-the-art compilation engine</h3>
+<p>Currently, the Scala rules in Bazel and Pants implement their own compilation engine, interface directly with internal Scala compiler APIs and have a high memory and resource usage footprint because they spawn a JVM server that cannot be reused by external build clients.</p>
+<p>The advantages of using Bloop to compile Scala code are the following:</p>
+<ol type="1">
+<li><strong>Speed</strong>. Bloop implements a compilation engine that:
+<ol type="1">
+<li>is the fastest to this date</li>
+<li>has been tweaked to have the best performance defaults</li>
+<li>uses build pipelining to speed up full build graph compilations</li>
+<li>is benchmarked in 20 of the biggest Scala open source projects</li>
+<li>is continuosly improved and maintained by compiler engineers</li>
+</ol></li>
+<li><strong>Supports pure compilation</strong>. Bloop can recompile build targets from scratch if it’s told to do so by the build tools.</li>
+<li><strong>Minimal use of resources</strong>. Bloop can be reused by any local build client, including those from other build tools and workspaces.</li>
+<li><strong>Lack of maintenance</strong>. The compilation engine doesn’t need to be maintained by neither the Bazel nor the Pants team.</li>
+<li><strong>Simple integration</strong>. The integration is done via the Build Server Protocol, which requires only a few hundred lines of code and is decoupled from any change in the compiler binary APIs.</li>
+</ol>
+<h2 id="how-to-integrate-with-bloop">How to integrate with Bloop</h2>
+<p>There are several ways to integrate Bloop and Pants/Bazel with varying degrees of functionality.</p>
+<p>Which integration is the best ultimately depends on what clients want/don’t want to give up and what are the key motivations behind the integration. The move from one integration oto another one can be done gradually.</p>
+<h3 id="barebone-integration-only-generating-.bloop">Barebone integration: only generating <code>.bloop/</code></h3>
+<p>Bloop loads a build by reading <a href="https://scalacenter.github.io/bloop/docs/configuration-format">Bloop configuration files</a> from a <code>.bloop/</code> directory placed in the root workspace directory.</p>
+<p>A configuration file is a JSON file that aggregates all of the build inputs Bloop needs to compile, test and run. It is written to a directory in the file system to simplify access and caching when the build tool is not running but other clients are. Every time a configuration file in this directory changes, the Bloop server automatically reloads its build state.</p>
+<p>A barebone integration is the simplest Bloop integration: Pants or Bazel generate Bloop configuration files to a <code>.bloop</code> directory. Whenever there is a change in a build target, Bazel or Pants regenerate its configuration file again.</p>
+<p>Here’s a diagram illustrating the barebone integration.</p>
+<p><img src="../images/bazel-pants-first-integration.svg" /></p>
+<p>Note that:</p>
+<ol type="1">
+<li>There are several clients talking to Bloop manned by developers</li>
+<li>The build tool and Bloop use different compilers/state</li>
+<li>Bazel/Pants write configuration files, Bloop only reads them</li>
+<li><code>.bloop</code> is the workspace directory where files are persisted</li>
+</ol>
+<h4 id="pros">Pros</h4>
+<ol type="1">
+<li>Easy to prototype (<a href="https://github.com/cosmicexplorer">Danny</a> and I implemented it in Pants in 4 hours)</li>
+<li>Out-of-the-box integration with Metals and CLI (motivation #1)</li>
+</ol>
+<h4 id="cons">Cons</h4>
+<ol type="1">
+<li>Requires writing all configurations to a <code>.bloop/</code> in the workspace.</li>
+<li>The Bloop compiles are not integrated with those of the build tool. This implies that this solution doesn’t satisfy users that want:
+<ul>
+<li>A faster developer workflow (motivation #2)</li>
+<li>A state-of-the-art compilation engine (motivation #3)
+<p>
+because the build tool and Bloop use their own compilers.</li>
+</ul></li>
+</ol>
+<h3 id="bsp-integration-generating-.bloop-and-talking-bsp">BSP integration: generating <code>.bloop/</code> and talking BSP</h3>
+<p>To enable a solution that not only provides the possibility of using Bazel/Pants from any editor but also has a faster developer workflow than the status quo, we need to look at ways we can enable Bloop to do the heavy-lifting of compilation.</p>
+<p>In a way, Bazel and Pants become build clients to the BSP build server in Bloop:</p>
+<ol type="1">
+<li>A compile in Bazel or Pants maps to a compile request to Bloop</li>
+<li>Bazel and Pants receive compilation logs and class files from Bloop</li>
+</ol>
+<p>The following diagram illustrates how the architecture looks like:</p>
+<p><img src="../images/bazel-pants-bsp-integration.svg" /></p>
+<p>We can see that Bazel / Pants no longer own compilers and that they instead communicate with the Bloop server via <a href="https://github.com/scalacenter/bsp">BSP</a>. To implement that, the build tools can use <code>bsp4j</code>, a tiny Java library that implements the protocol and allows the client to listen to all results/notifications from the build tool.</p>
+<p>There are, however, different ways Bazel or Pants can offload compilation to Bloop. Let’s illustrate both of them with a simple build.</p>
+<p><img src="../images/build-graph-example.svg" /></p>
+<p>The straight-forward mechanism to offload compilation is to let the Bazel/Pants build tool drive the compilation itself.</p>
+<p>Upon the <em>first</em> compilation of a target <code>C</code>, the build tool would:</p>
+<ol type="1">
+<li>Make sure there is an open BSP connection with the Bloop server.
+<ul>
+<li>If not, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will start it</li>
+</ul></li>
+<li>Visit <code>C</code>, find dependency <code>B</code> is not compiled.</li>
+<li>Visit <code>B</code>, find dependency <code>A</code> is not compiled.</li>
+<li>Visit <code>A</code>, no more dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>A</code></li>
+<li>Send Bloop compile request for <code>A</code> to write class files</li>
+</ol></li>
+<li>Come back to <code>B</code>, no more uncompiled dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>B</code></li>
+<li>Send Bloop compile request for <code>B</code> to write class files</li>
+</ol></li>
+<li>Come back to <code>C</code>, no more uncompiled dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>C</code></li>
+<li>Send Bloop compile request for <code>C</code> to write class files</li>
+</ol></li>
+</ol>
+<p>(The build tool can safely visit a build graph in parallel.)</p>
+<p>This mechanism works if one wants the build tool to own and control the way compilations are run, but it’s slower than letting Bloop compile a subset of the build graph on its own, where Bloop can (among other actions):</p>
+<ul>
+<li>Start the compilation of a project before its dependencies are finished (e.g. start compiling <code>B</code> right after <code>A</code> is typechecked). This is the so-called build pipelining.</li>
+<li>Compile faster by populating symbols from in-memory stores instead of reading class files from the file system.</li>
+<li>Amortize the cost of starting a compilation by compiling a list of build targets at the same time.</li>
+</ul>
+<p>The build tool could benefit from all of these actions by just changing how it maps compilation requests to the Bloop BSP server:</p>
+<ol type="1">
+<li>Make sure there is an open BSP connection with the Bloop server.
+<ul>
+<li>If not, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will start it</li>
+</ul></li>
+<li>Visit <code>C</code>, find dependency <code>B</code> has no config.</li>
+<li>Visit <code>B</code>, find dependency <code>A</code> has no config.</li>
+<li>Visit <code>A</code>, no more dependencies, then generate config for <code>A</code></li>
+<li>Come back to <code>B</code>, no more dependencies, generate config for <code>B</code></li>
+<li>Come back to <code>C</code>, no more dependencies, generate config for <code>C</code></li>
+<li>Send a Bloop compile request from <code>C</code>.
+<ul>
+<li>Bloop will start compiling the build graph <em>in the background</em>.</li>
+<li>After building a target, Bloop sends a notification to client.</li>
+</ul></li>
+<li>Visit <code>B</code>, find dependency <code>A</code> is not compiled.</li>
+<li>Visit <code>A</code>, wait for Bloop’s end notification.</li>
+<li>Come back to <code>B</code>, wait for Bloop’s end notification.</li>
+<li>Come back to <code>A</code>, wait for Bloop’s end notification.</li>
+</ol>
+<p>Right after receiving the notifications from the server, the build tool will find all the compilation products written in the classes directory specified in the configuration file. Meaning the build tool can immediately start evaluating tasks that depend on compilation products for that project.</p>
+<p>(Sbt will offload compilation to Bloop by following this strategy in the next Bloop release.)</p>
+<h4 id="pros-1">Pros</h4>
+<ol type="1">
+<li>Out-of-the-box integration with Metals and CLI (motivation #1)</li>
+<li>A faster local developer workflow (motivation #2)</li>
+<li>A state-of-the-art compilation engine that compiles the build graph as fast as possible for the build tool, with a simple protocol that decouples the build tools from compiler internals</li>
+</ol>
+<h4 id="cons-1">Cons</h4>
+<ol type="1">
+<li>Not as straight-forward to implement as the first shallow integration.</li>
+<li>Requires writing all configurations to a <code>.bloop/</code> in the workspace.</li>
+</ol>
+<h3 id="manual-binary-dependency">Manual binary dependency</h3>
+<p>It is <em>possible</em> (but <strong>discouraged</strong>) to use Bloop’s compilation engine via a library dependency and interface directly with Bloop internal compiler APIs. However, most of the nice performance advantages of using Bloop will be lost as those are implemented in how the schedluling of build targets is implemented.</p>
+<h4 id="pros-2">Pros</h4>
+<ol type="1">
+<li>Can yield some compile speedups if the internals are used correctly</li>
+</ol>
+<h4 id="cons-2">Cons</h4>
+<ol type="1">
+<li>No out-of-the-box integration with Metals and other clients (motivation #1)</li>
+<li>Same local developer workflow as now (motivation #2)</li>
+<li>Difficult to implement and maintain (similar situation as the status quo)
+<ul>
+<li>Bloop compiler APIs change frequently</li>
+<li>Bloop compiler APIs do not promise binary compatibility</li>
+</ul></li>
+</ol>
+<h2 id="interaction-with-the-cis">Interaction with the CIs</h2>
+<p>The CI doesn’t pose any integration problems for Bloop. When Bazel runs compilation in the build farm, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will open a connection with a Bloop server and start compiling, in a similar way to how the current rules Scala in Bazel or Pants work.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>This document motivates an integration with Bloop, explains why build tools such as Pants and Bazel that don’t want to co</p>

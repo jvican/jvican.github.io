@@ -305,6 +305,13 @@ body>* {
   padding: 4rem 0 8rem 0;
 }
 
+.vscode-body #content {
+  width: 29rem !important;
+  margin-left: 9rem !important;
+  margin-right: 0.5rem !important;
+}
+
+
 h2 {
   font-weight: bolder;
 }
@@ -844,6 +851,10 @@ code {
   font-size: 0.8rem !important;
 }
 
+.vscode-body code {
+  font-size: 0.6rem !important;
+}
+
 ol, ul, pre {
   margin: 1em 1ex;
 }
@@ -859,8 +870,21 @@ ol li, ul li {
   list-style-position: outside;
 }
 
+.vscode-body ol li {
+  margin-left: 1rem !important;
+}
+
+.vscode-body ul li {
+  margin-left: 1rem !important;
+}
+
 li+li {
   margin-top: 0.5rem;
+}
+
+.vscode-body li+li {
+  margin-top: 0rem;
+  margin-bottom: 0rem;
 }
 
 figure {
