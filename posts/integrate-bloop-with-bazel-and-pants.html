@@ -190,9 +190,9 @@ because the build tool and Bloop use their own compilers.</li>
 <li>After building a target, Bloop sends a notification to client.</li>
 </ul></li>
 <li>Visit <code>B</code>, find dependency <code>A</code> is not compiled.</li>
-<li>Visit <code>A</code>, wait for Bloop’s end notification.</li>
-<li>Come back to <code>B</code>, wait for Bloop’s end notification.</li>
-<li>Come back to <code>A</code>, wait for Bloop’s end notification.</li>
+<li>Visit <code>A</code>, wait for Bloop’s end notification for <code>A</code>.</li>
+<li>Come back to <code>B</code>, wait for Bloop’s end notification for <code>B</code>.</li>
+<li>Come back to <code>C</code>, wait for Bloop’s end notification for <code>C</code>.</li>
 </ol>
 <p>Right after receiving the notifications from the server, the build tool will find all the compilation products written in the classes directory specified in the configuration file. Meaning the build tool can immediately start evaluating tasks that depend on compilation products for that project.</p>
 <p>(Sbt will offload compilation to Bloop by following this strategy in the next Bloop release.)</p>
@@ -204,7 +204,7 @@ because the build tool and Bloop use their own compilers.</li>
 </ol>
 <h4 id="cons-1">Cons</h4>
 <ol type="1">
-<li>Not as straight-forward to implement as the first shallow integration.</li>
+<li>Not as straight-forward to implement as the first shallow integration, but still doable and abstracted away from compiler internals.</li>
 <li>Requires writing all configurations to a <code>.bloop/</code> in the workspace.</li>
 </ol>
 <h3 id="manual-binary-dependency">Manual binary dependency</h3>
@@ -226,4 +226,5 @@ because the build tool and Bloop use their own compilers.</li>
 <h2 id="interaction-with-the-cis">Interaction with the CIs</h2>
 <p>The CI doesn’t pose any integration problems for Bloop. When Bazel runs compilation in the build farm, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will open a connection with a Bloop server and start compiling, in a similar way to how the current rules Scala in Bazel or Pants work.</p>
 <h2 id="conclusion">Conclusion</h2>
-<p>This document motivates an integration with Bloop, explains why build tools such as Pants and Bazel that don’t want to co</p>
+<p>This document motivates an integration with Bloop, explains why build tools such as Pants and Bazel would like to integrate with it and what are the consequences to their users.</p>
+<p>This document intentionally goes into not only ideas but also implementation details to show how a full end-to-end integration from Bazel or Pants to Bloop is possible and can be implemented. Despite a few minor improvements missing in the latest Bloop release, build tool engineers could implement an integration that works tomorrow while solving fundamental problems present today.</p>

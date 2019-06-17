@@ -294,9 +294,9 @@ it maps compilation requests to the Bloop BSP server:
    * Bloop will start compiling the build graph *in the background*.
    * After building a target, Bloop sends a notification to client.
 1. Visit `B`, find dependency `A` is not compiled.
-1. Visit `A`, wait for Bloop's end notification.
-1. Come back to `B`, wait for Bloop's end notification.
-1. Come back to `A`, wait for Bloop's end notification.
+1. Visit `A`, wait for Bloop's end notification for `A`.
+1. Come back to `B`, wait for Bloop's end notification for `B`.
+1. Come back to `C`, wait for Bloop's end notification for `C`.
 
 Right after receiving the notifications from the server, the build tool will
 find all the compilation products written in the classes directory specified
@@ -316,7 +316,8 @@ Bloop release.)
 
 #### Cons
 
-1. Not as straight-forward to implement as the first shallow integration.
+1. Not as straight-forward to implement as the first shallow integration, but
+   still doable and abstracted away from compiler internals.
 1. Requires writing all configurations to a `.bloop/` in the workspace.
 
 ### Manual binary dependency
@@ -348,7 +349,16 @@ the current rules Scala in Bazel or Pants work.
 
 ## Conclusion
 
-This document motivates an integration with Bloop, explains why build tools such as Pants and Bazel that don't want to co
+This document motivates an integration with Bloop, explains why build tools
+such as Pants and Bazel would like to integrate with it and what are the
+consequences to their users.
+
+This document intentionally goes into not only ideas but also implementation
+details to show how a full end-to-end integration from Bazel or Pants to
+Bloop is possible and can be implemented. Despite a few minor improvements
+missing in the latest Bloop release, build tool engineers could implement an
+integration that works tomorrow while solving fundamental problems present
+today.
 
 [scaladays]: https://www.scaladays.org
 [Natan]: https://github.com/natansil
