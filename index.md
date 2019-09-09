@@ -56,9 +56,10 @@ a special focus on developer productivity and compilation performance.
 
 ### Presentations
 
+* [Design Challenges of Bloop, a fast concurrent build server (slides)](scalaworld2019slides) (video not yet available), 2019 Scala World
 * [Build Server Protocol and new IDEAs](scalasphere2018) with Justin Kaeser, 2018 ScalaSphere Kraków
-* [Meet bloop and get more productive v2](scaladays2018ny) with Martin Duhem, 2018 Scala Days, New York
-* [Meet bloop and get more productive v1](scaladays2018be) with Martin Duhem, 2018 Scala Days, Berlin
+* [Meet Bloop and Get More Productive v2](scaladays2018ny) with Martin Duhem, 2018 Scala Days, New York
+* [Meet Bloop and Get More Productive v1](scaladays2018be) with Martin Duhem, 2018 Scala Days, Berlin
 
 ### Posts
 
@@ -78,3 +79,4 @@ a special focus on developer productivity and compilation performance.
 [scalasphere2018]: https://www.youtube.com/watch?v=Ppj0EFns59M
 [scaladaysny]: https://www.youtube.com/watch?v=O3H0U2BjUq8
 [scaladaysbe]: https://www.youtube.com/watch?v=SIP1Y-0Bxow
+[scalaworld2019slides]: slides/scalaworld-2019/Design-challenges-of-Bloop.pdf
