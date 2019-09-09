@@ -79,4 +79,4 @@ a special focus on developer productivity and compilation performance.
 [scalasphere2018]: https://www.youtube.com/watch?v=Ppj0EFns59M
 [scaladaysny]: https://www.youtube.com/watch?v=O3H0U2BjUq8
 [scaladaysbe]: https://www.youtube.com/watch?v=SIP1Y-0Bxow
-[scalaworld2019slides]: slides/scalaworld-2019/Design-challenges-of-Bloop.pdf
+[scalaworld2019slides]: /slides/scalaworld-2019/Design-challenges-of-Bloop.pdf
