@@ -57,13 +57,11 @@ Back
 </div>
 <div id="content">
 <article id="doc">
-<div class="hanging-topic" hyphens="none">
-<h2 class="topic">Overload methods with more parameter lists</h3>
-<p hyphens="none">A technique to trick the compiler and shadow overloaded members</p>
-</div>
 
-Have you ever asked yourself if you can enrich a method that you need to
-implement in a class to receive more information from the call site?
+# Overload methods with parameter lists
+
+Have you ever wondered if you can enrich a method that you need to
+implement in a class to get more information from the call site?
 
 For example, let's say you have method `debug` in a logger interface `AbstractLogger`.
 Can we implement the logger interface and at the same time overload `debug`
@@ -101,6 +99,11 @@ The logging infrastructure in [bloop][] implements several third-party `Logger`
 interfaces and aggregates them in an abstract class `BloopLogger` (for
 simplicity we'll extend only one: `AbstractLogger`).
 
+<aside>
+(Scastie link to runnable code [here](https://scastie.scala-lang.org/gqI3gCsVTJuGWCeoZrpuHg).)
+
+</aside>
+
 ```scala
 // A third-party logger interface (in our classpath)
 abstract class AbstractLogger {
@@ -119,8 +122,6 @@ class SimpleLogger extends BloopLogger {
   override def error(msg: String): Unit = println(s"Error: $msg")
 }
 ```
-
-(Scastie link to runnable code [here](https://scastie.scala-lang.org/gqI3gCsVTJuGWCeoZrpuHg).)
 
 We'd like to add an enriched version of `debug` that looks like `debug(msg:
 String)(implicit ctx: DebugContext)`, where `DebugContext` identifies the
@@ -300,12 +301,13 @@ object MyApp {
 
 ### Complete Scastie Example
 
-A Scastie example with the complete code and output is available [in the
-following link](https://scastie.scala-lang.org/D4cAr7CLT3u29CVDI5ddoA).
-You can play with the code and confirm yourself the approach in this blog
-post works.
 
 ## Conclusion
+
+<aside>
+Play around with all the code of this blog post [in this Scastie code snippet](https://scastie.scala-lang.org/D4cAr7CLT3u29CVDI5ddoA).
+
+</aside>
 
 Overloading a method inherited from a third-party class is possible in Scala.
 It requires a little bit of gymnastics, but once we're familiar with the

@@ -39,17 +39,15 @@ Back
 </div>
 <div id="content">
 <div id="doc">
-<div class="hanging-topic" hyphens="none">
-<h2 class="topic">
-Profiling and reducing compilation times of typeclass derivation
-</h3>
-<p hyphens="none"> A X-Post from scala-lang. </p>
-</div>
+
+# Profiling and reducing compilation times of typeclass derivation
 
 I have recently published a blog post in the official Scala website about my
-recent work on [`scalac-profiling`][scalac-profiling], a new compiler plugin
-to complement my recent work on the compiler statistics/sampling
-infrastructure merged in Scala 2.12.5.
+recent work on [`scalac-profiling`][scalac-profiling].
+
+`scalac-profiling` is a new compiler plugin to complement my recent work on
+the compiler statistics/sampling infrastructure merged in Scala 2.12.5 and
+available from then on.
 
 In the blog post I talk about compilation performance, typeclass derivation,
 the expensive price of derivation via implicits and how to `scalac-profiling`

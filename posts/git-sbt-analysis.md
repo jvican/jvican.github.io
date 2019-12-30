@@ -37,10 +37,8 @@ Back
 </div>
 <div id="content">
 <div id="doc">
-<div class="hanging-topic" hyphens="none">
-<h2 class="topic">How often do we change our sbt builds</h3>
-<p hyphens="none">A non-scientific analysis across many Scala projects</p>
-</div>
+
+# How often do we change our sbt builds
 
 <!-- This document is in Pandoc Markdown format.
      http://daringfireball.net/projects/markdown/
@@ -48,9 +46,12 @@ Back
      H/T practicaltypography.com
  -->
 
+
 I spend a lot of time thinking about build tools and popular setups, and what
-changes are more likely to impact developers positively. In one of these
-ramblings, one question popped up: "How often do we change our builds?"
+changes are more likely to impact developers positively.
+
+In one of these ramblings, one question popped up: "How often do we change
+our builds?"
 
 It's not easier to answer this question, data on the topic is scarce. So I
 challenged myself to come up with some data to satisfy my curiosity.

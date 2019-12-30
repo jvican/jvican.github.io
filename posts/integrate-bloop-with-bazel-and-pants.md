@@ -37,14 +37,16 @@ Back
 </a>
 </div>
 </div>
+
 <div id="content">
 <div id="doc">
-<div class="hanging-topic" hyphens="none">
-<h2 class="topic">
-Integrate Bloop with Pants/Bazel
-</h3>
-<p hyphens="none"> An article on the motivation and the different strategies to integrate Bloop with Bazel/Pants. </p>
-</div>
+
+# Integrate Bloop with Pants/Bazel
+
+What is the future of build tools such as Pants and Bazel in the Scala community?
+Can we accelerate the adoption rate by integrating these tools with the existing tooling ecosystem?
+
+## Tools 101
 
 Bloop is a Scala build server that compiles, tests and runs Scala fast.
 
