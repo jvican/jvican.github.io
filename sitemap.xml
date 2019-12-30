@@ -1,25 +1,30 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  
+
   <url>
-    <loc>https://jvican.github.io/post/overload-methods-with-more-parameter-lists/</loc>
-    <lastmod>2018-10-25T20:29:12+02:00</lastmod>
+    <loc>https://jvican.github.io/posts/integrate-bloop-with-bazel-and-pants.html</loc>
+    <lastmod>2019-10-25T20:29:12+02:00</lastmod>
+  </url>
+
+  <url>
+    <loc>https://jvican.github.io/posts/overload-methods-with-more-parameter-lists.html</loc>
+    <lastmod>2019-10-25T20:29:12+02:00</lastmod>
   </url>
   
   <url>
-    <loc>https://jvican.github.io/post/scalac-profiling/</loc>
+    <loc>https://jvican.github.io/posts/scalac-profiling.html</loc>
     <lastmod>2018-05-20T10:00:00+01:00</lastmod>
   </url>
   
   <url>
-    <loc>https://jvican.github.io/post/git-sbt-analysis/</loc>
+    <loc>https://jvican.github.io/posts/git-sbt-analysis.html</loc>
     <lastmod>2017-10-19T23:29:12+02:00</lastmod>
   </url>
   
   <url>
     <loc>https://jvican.github.io/</loc>
-    <lastmod>2019-04-28T20:29:12+02:00</lastmod>
+    <lastmod>2019-12-28T20:29:12+02:00</lastmod>
     <priority>0</priority>
   </url>
   
