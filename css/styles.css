@@ -994,11 +994,11 @@ figure {
   display: block;
   font-weight: bolder;
   margin-bottom: 0.8rem;
-  font-family: hermes-maia-caps;
+  font-family: hermes-maia-text;
   margin-bottom: 0.4rem;
   margin-top: 1.4rem;
   line-height: 1.3;
-  font-size: 115%;
+  font-size: 130%;
 }
 
 #doc>h3 {
@@ -1008,11 +1008,11 @@ figure {
   display: block;
   font-weight: bolder;
   margin-bottom: 0.8rem;
-  font-family: hermes-maia-caps;
+  font-family: hermes-maia-text;
   margin-bottom: 0.4rem;
   margin-top: 1.4rem;
   line-height: 1.3;
-  font-size: 105%;
+  font-size: 110%;
 }
 
 
@@ -1137,6 +1137,14 @@ topic {
   border-bottom: 1px solid #333;
   padding-top: 0.02em;
   hyphens: none;
+}
+
+.username {
+  font-weight: normal;
+}
+
+.username a {
+  background: hsla(30, 20%, 90%, 1);
 }
 
 .subhead, .howto-name {

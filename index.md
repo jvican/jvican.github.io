@@ -30,7 +30,7 @@
 
 <div class="hanging-topic" hyphens="none">
 <img id="avatar" src="https://avatars2.githubusercontent.com/u/2462974"/>
-<h2 class="topic"><a href="https://twitter.com/jvican">@jvican</a></h3>
+<h2 class="topic username"><a href="https://twitter.com/jvican">@jvican</a></h3>
 </div>
 
 <!-- This document is in Pandoc Markdown format.
@@ -48,11 +48,11 @@ a special focus on developer productivity and compilation performance.
 
 ### Projects
 
-* [sbt/zinc], Scala's incremental compiler.
-* [scalacenter/bloop], a fast Scala build server.
-* [BSP][scalacenter/bsp], a build server protocol.
-* [sbt/sbt], the most popular Scala build tool.
-* [scalacenter/scalac-profiling], a proof-of-concept `scalac` profiler.
+- [sbt/zinc], Scala's incremental compiler.
+- [scalacenter/bloop], a fast Scala build server.
+- [BSP][scalacenter/bsp], a build server protocol.
+- [sbt/sbt], the most popular Scala build tool.
+- [scalacenter/scalac-profiling], a proof-of-concept `scalac` profiler.
 
 ### Presentations
 
