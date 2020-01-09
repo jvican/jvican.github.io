@@ -39,7 +39,7 @@
      H/T practicaltypography.com
  -->
 
-My name is Jorge. I'm a Senior Software engineer on the Data Science Platform
+My name is Jorge. I'm a senior software engineer on the Data Science Platform
 team at Netflix where I work on notebooks and developer tools for data scientists.
 
 Formerly, I worked at the [Scala Center][scalacenter] on developer tools for
