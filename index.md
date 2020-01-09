@@ -29,7 +29,7 @@
 <div id="doc">
 
 <div class="hanging-topic" hyphens="none">
-<img id="avatar" src="https://avatars2.githubusercontent.com/u/2462974"/>
+<img id="avatar" width="80%" src="https://avatars2.githubusercontent.com/u/2462974"/>
 <h2 class="topic username"><a href="https://twitter.com/jvican">@jvican</a></h3>
 </div>
 
