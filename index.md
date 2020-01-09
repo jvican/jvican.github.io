@@ -39,20 +39,23 @@
      H/T practicaltypography.com
  -->
 
-My name is Jorge. I'm a software engineer at the [Scala Center][scalacenter]
-where I work on developer tools for the [Scala programming
-language][scala-lang].
+My name is Jorge. I'm a Senior Software engineer on the Data Science Platform
+team at Netflix where I work on notebooks and developer tools for data scientists.
 
-My work lies at the intersection of compiler technology and build tools, with
-a special focus on developer productivity and compilation performance.
+Formerly, I worked at the [Scala Center][scalacenter] on developer tools for
+the [Scala programming language][scala-lang].
+
+I have a fondness for developing tools that make scientists and engineers
+more productive. My work usually lies at the intersection of compiler
+technology, build tools and IDEs.
 
 ### Projects
 
 - [sbt/zinc], Scala's incremental compiler.
-- [scalacenter/bloop], a fast Scala build server.
+- [scalacenter/bloop], a build-tool-agnostic fast Scala build server.
 - [BSP][scalacenter/bsp], a build server protocol.
 - [sbt/sbt], the most popular Scala build tool.
-- [scalacenter/scalac-profiling], a proof-of-concept `scalac` profiler.
+- [scalacenter/scalac-profiling], a profiler for the `scalac` compiler.
 
 ### Presentations
 
