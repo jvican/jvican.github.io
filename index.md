@@ -25,30 +25,33 @@
 <title>Welcome to Jorge Vicente Cantero's blog</title>
 </head>
 <body>
-<div id="top-stripe"></div>
 <div id="content">
 <div id="doc">
 
-<div class="hanging-topic" hyphens="none">
+<div class="hanging-intro" hyphens="none">
 <img id="avatar" width="80%" src="https://avatars2.githubusercontent.com/u/2462974"/>
-<h2 class="topic username"><a href="https://twitter.com/jvican">@jvican</a></h3>
 </div>
 
 <!-- This document is in Pandoc Markdown format.
      http://daringfireball.net/projects/markdown/
-     $ pandoc value-type-hygiene.md -o value-type-hygiene.html
+     $ pandoc index.md -o index.html
      H/T practicaltypography.com
  -->
 
-My name is Jorge. I'm a senior software engineer on the Data Science Platform
-team at Netflix where I work on notebooks and developer tools for data scientists.
+My name is Jorge. In the web, I usually go by jvican.
 
-Formerly, I worked at the [Scala Center][scalacenter] on developer tools for
-the [Scala programming language][scala-lang].
+I work as a Senior Software Engineer team at Netflix. My team develops the
+internal notebooks infra as well as several products for data scientists at
+Netflix. Formerly, I worked at the [Scala Center][scalacenter] on the [Scala
+programming language][scala-lang].
 
-I have a fondness for developing tools that make scientists and engineers
-more productive. My work usually lies at the intersection of compiler
-technology, build tools and IDEs.
+I have deep expertise in build systems, compilers, virtual machines and
+developer tools. I have authored and maintained several libraries in the
+open-source. I have experience profiling and optimizing complex systems.
+
+I'm always on the lookout for high-impact projects that can make engineers and
+scientists more productive. If you'd like to collaborate with me, reach out at
+*jorge* at *vican.me* or contact me via Twitter at [@jvican][].
 
 ### Projects
 
@@ -72,6 +75,7 @@ technology, build tools and IDEs.
 * Oct 2018. [Overload methods with extra parameter lists](posts/overload-methods-with-more-parameter-lists.html)
 * Oct 2017. [How often do we change our sbt build?](posts/git-sbt-analysis.html)
 
+[@jvican]: https://twitter.com/jvican
 [scalacenter]: https://scala.epfl.ch
 [sbt/sbt]: https://github.com/sbt/sbt
 [sbt/zinc]: https://github.com/sbt/zinc

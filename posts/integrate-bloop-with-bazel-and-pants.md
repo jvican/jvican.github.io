@@ -343,7 +343,7 @@ implemented.
    * Bloop compiler APIs change frequently
    * Bloop compiler APIs do not promise binary compatibility
 
-## Interaction with the CIs
+## CI compatibility
 
 The CI doesn't pose any integration problems for Bloop. When Bazel runs
 compilation in the build farm, the [Bloop Launcher][launcher] will open a
