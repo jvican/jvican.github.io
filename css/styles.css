@@ -289,10 +289,14 @@ h1, .home-link {
   position: relative;
 }
 
+.hanging-intro {
+  margin: 1.3rem auto !important;
+}
+
 /* Make sure we disable changes to #doc img */
 .hanging-intro img {
     display: initial !important;
-    margin: 0 auto !important;
+    margin: auto !important;
 }
 
 .margin-note {
@@ -308,7 +312,6 @@ h1, .home-link {
   margin-top: 0.1rem;
   margin-bottom: 0.8rem;
   font-size: 110%;
-  line-height: 1.1;
 }
 
 #avatar {
@@ -320,7 +323,6 @@ h1, .home-link {
 .hanging-intro p {
   font-style: italic;
   font-size: 95%;
-  line-height: 1.2;
 }
 
 ~h2.section+p:first-line {
@@ -348,8 +350,8 @@ body {
   /* corrects safari rendering */
   -webkit-font-smoothing: subpixel-antialiased;
   font-family: century-supra-text;
-  line-height: 1.2;
-  font-size: 0.88rem;
+  line-height: 1.35;
+  font-size: 0.9rem;
 }
 
 body>* {
