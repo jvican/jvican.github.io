@@ -40,10 +40,10 @@
 
 My name is Jorge. In the web, I usually go by jvican.
 
-I work as a Senior Software Engineer team at Netflix. My team develops the
-internal notebooks infra as well as several products for data scientists at
-Netflix. Formerly, I worked at the [Scala Center][scalacenter] on the [Scala
-programming language][scala-lang].
+I work as a Senior Software Engineer team at Netflix. My team owns the Netflix
+notebooks infrastructure and other products for data scientists. Formerly, I
+worked at the [Scala Center][scalacenter] on the [Scala programming
+language][scala-lang].
 
 I have deep expertise in build systems, compilers, virtual machines and
 developer tools. I have authored and maintained several libraries in the

@@ -290,7 +290,8 @@ h1, .home-link {
 }
 
 .hanging-intro {
-  margin: 1.3rem auto !important;
+  margin: 1rem auto !important;
+  margin-top: 0.5rem !important;
 }
 
 /* Make sure we disable changes to #doc img */
