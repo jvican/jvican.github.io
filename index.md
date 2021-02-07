@@ -32,10 +32,10 @@
 <img id="avatar" width="80%" src="https://avatars2.githubusercontent.com/u/2462974"/>
 </div>
 
-<!-- This document is in Pandoc Markdown format.
-     http://daringfireball.net/projects/markdown/
-     $ pandoc index.md -o index.html
-     H/T practicaltypography.com
+<!-- This document is in Github Markdown format.
+     $ pandoc index.md -f gfm -o index.html
+     You can also use the following to trigger pandoc on file change
+     $ ls | entr -s 'pandoc *.md -f gfm -o *.html'
  -->
 
 My name is Jorge. In the web, I usually go by jvican.
@@ -53,7 +53,7 @@ I'm always on the lookout for high-impact projects that can make engineers and
 scientists more productive. If you'd like to collaborate with me, reach out at
 *jorge* at *vican.me* or contact me via Twitter at [@jvican][].
 
-### Projects
+## Projects
 
 - [sbt/zinc], Scala's incremental compiler.
 - [scalacenter/bloop], a build-tool-agnostic fast Scala build server.
@@ -61,19 +61,28 @@ scientists more productive. If you'd like to collaborate with me, reach out at
 - [sbt/sbt], the most popular Scala build tool.
 - [scalacenter/scalac-profiling], a profiler for the `scalac` compiler.
 
-### Presentations
+## Presentations
 
-* [Design Challenges of Bloop, a fast concurrent build server](https://www.youtube.com/watch?v=PgQyCnqm4QQ) [(slides)](slides/scalaworld-2019/Design-challenges-of-Bloop.pdf), 2019 Scala World
-* [Build Server Protocol and new IDEAs](scalasphere2018) with Justin Kaeser, 2018 ScalaSphere Kraków
-* [Meet Bloop and Get More Productive v2](scaladays2018ny) with Martin Duhem, 2018 Scala Days, New York
-* [Meet Bloop and Get More Productive v1](scaladays2018be) with Martin Duhem, 2018 Scala Days, Berlin
+* [Design Challenges of Bloop, a fast concurrent build server](https://www.youtube.com/watch?v=PgQyCnqm4QQ)
+  </br>Scala World 2019, [link to slides](slides/scalaworld-2019/Design-challenges-of-Bloop.pdf)
+* [Build Server Protocol and new IDEAs](scalasphere2018)
+  </br>Collaboration with *Justin Kaeser* @ ScalaSphere 2018, Kraków
+* [Meet Bloop and Get More Productive v2](scaladays2018ny)
+  </br>Collaboration with *Martin Duhem* @ Scala Days 2018, New York
+* [Meet Bloop and Get More Productive v1](scaladays2018be)
+  </br>Collaboration with *Martin Duhem* @ Scala Days 2018, Berlin
 
-### Posts
+## Posts
 
 * June 2019. [Integrate Bloop with Bazel and Pants](posts/integrate-bloop-with-bazel-and-pants.html)
 * June 2018. [Speed up compilation times with scalac-profiling](posts/scalac-profiling.html)
 * Oct 2018. [Overload methods with extra parameter lists](posts/overload-methods-with-more-parameter-lists.html)
 * Oct 2017. [How often do we change our sbt build?](posts/git-sbt-analysis.html)
+
+## Thoughts
+
+Musings, reflections and gut feelings about day-to-day things. Expect me
+to be wrong and to write about topics I don't have expertise in.
 
 [@jvican]: https://twitter.com/jvican
 [scalacenter]: https://scala.epfl.ch

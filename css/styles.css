@@ -48,16 +48,28 @@
 
 @font-face {
     font-family: century-supra-caps;
-    font-style: nomrla;
+    font-style: normal;
     font-weight: bold;
     font-stretch: normal;
     src: url('../fonts/century-supra/century_supra_c3_bold.woff2');
 }
 
 
-html { font-size: 2.4vw; }
-@media all and (min-width:1000px) { html { font-size: 24px; } }
-@media all and (max-width:520px) { html{ font-size: 18px; } }
+html {
+  font-size: 2.4vw;
+}
+
+@media all and (min-width:1000px) {
+  html {
+    font-size: 24px;
+  }
+}
+
+@media all and (max-width:520px) {
+  html {
+    font-size: 18px;
+  }
+}
 
 /*
 @media all {
@@ -163,6 +175,188 @@ h1, .home-link {
   /* font-family: "advocate-c43"; */
   font-size: 2rem;
   line-height: 1.1;
+}
+
+
+~h2.section+p:first-line {
+  /* font-family: "Equity Caps"; */
+  font-weight: bolder;
+  text-transform: lowercase;
+  font-feature-settings: 'c2sc' 1;
+}
+
+html {
+  height: 100%;
+}
+
+/* Add this so that vscode preview rendered doesn't show a tiny font size */
+.vscode-body {
+  font-size: 19px !important;
+}
+
+body {
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'liga' 1;
+  font-feature-settings: 'kern' 1;
+  color: #111;
+
+  /* Corrects safari rendering */
+  -webkit-font-smoothing: subpixel-antialiased;
+  font-family: century-supra-text;
+  line-height: 1.3;
+  font-size: 0.86rem;
+}
+
+body>* {
+  font-size: 100%;
+  margin-left: 2rem;
+  margin-right: 2rem;
+}
+
+p {
+  margin-block-start: 1.2em;
+  margin-block-end: 1.2em;
+  margin-inline-start: 0px;
+  margin-inline-end: 0px;
+}
+
+#content {
+  max-width: 32rem;
+  width: 100%;
+  padding: 2rem 0 2rem 0;
+  margin: 0 auto;
+}
+
+.vscode-body #content {
+  width: 29rem !important;
+  margin-left: 9rem !important;
+  margin-right: 0.5rem !important;
+}
+
+h1 {
+  font-size: inherit;
+}
+
+h2 {
+  font-weight: bolder;
+}
+
+em {
+  font-style: italic;
+}
+
+a:visited {
+  color: #0b0080 !important;
+}
+
+a:not(.sourceLine) {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted #aba3a3;
+  color: #0645ad;
+}
+
+a:not(.sourceLine):hover {
+}
+
+a:not(.sourceLine), a:not(.sourceLine):hover {
+  transition: background 0.2s;
+}
+
+.xref {
+  text-transform: lowercase;
+  font-feature-settings: 'c2sc' 1;
+}
+
+.bordered {
+  border: 1px solid gray;
+}
+
+p+.indented {
+  margin-top: 1rem;
+}
+
+.indented+p {
+  margin-top: 1rem;
+}
+
+.indented, .book-description {
+  margin-left: 2.5rem;
+  margin-right: 2.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.book-description {
+  margin-bottom: 1.2rem;
+}
+
+font-desc {
+  display: block;
+  font-size: 75%;
+  -webkit-columns: 2;
+}
+
+font-desc a.xref {
+  /* font-family: "concourse-c6"; */
+}
+
+ul.subnav {
+  column-count: 2;
+}
+
+ul.subnav li {
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 0.8rem;
+}
+
+table.captioned {
+  width: 90%;
+}
+
+table.captioned+table.captioned {
+  margin-top: -0.5rem;
+}
+
+table.captioned td {
+  border: 0;
+  vertical-align: baseline;
+}
+
+.caption, .caption-runin {
+  /* font-family: "concourse-c4"; */
+}
+
+.caption-runin {
+  margin-right: 0.3rem;
+}
+
+.caption {
+  right: 4rem;
+  border: 0;
+}
+
+.os {
+  /* font-family: "concourse-c6"; */
+  text-transform: lowercase;
+  font-feature-settings: 'c2sc' 1;
+  ;
+}
+
+.os:after {
+  content: " | ";
+}
+
+sig {
+  display: block;
+  margin-top: 1.5rem;
+  text-align: right;
+  text-transform: lowercase;
+  font-feature-settings: 'c2sc' 1;
+}
+
+sig:before {
+  content: "— ";
 }
 
 .home-image {
@@ -324,178 +518,6 @@ h1, .home-link {
 .hanging-intro p {
   font-style: italic;
   font-size: 95%;
-}
-
-~h2.section+p:first-line {
-  /* font-family: "Equity Caps"; */
-  font-weight: bolder;
-  text-transform: lowercase;
-  font-feature-settings: 'c2sc' 1;
-}
-
-html {
-  height: 100%;
-}
-
-/* Add this so that vscode preview rendered doesn't show a tiny font size */
-.vscode-body {
-  font-size: 19px !important;
-}
-
-body {
-  text-rendering: optimizeLegibility;
-  font-feature-settings: 'liga' 1;
-  font-feature-settings: 'kern' 1;
-  color: #111;
-
-  /* corrects safari rendering */
-  -webkit-font-smoothing: subpixel-antialiased;
-  font-family: century-supra-text;
-  line-height: 1.35;
-  font-size: 0.9rem;
-}
-
-body>* {
-  font-size: 100%;
-  margin-left: 2rem;
-  margin-right: 2rem;
-}
-
-body p {
-  margin-bottom: 0.8rem;
-}
-
-#content {
-  width: 30rem;
-  padding: 2rem 0 2rem 0;
-}
-
-.vscode-body #content {
-  width: 29rem !important;
-  margin-left: 9rem !important;
-  margin-right: 0.5rem !important;
-}
-
-h1 {
-  font-size: inherit;
-}
-
-h2 {
-  font-weight: bolder;
-}
-
-em {
-  font-style: italic;
-}
-
-a:not(.sourceLine) {
-  text-decoration: none;
-  color: inherit;
-  border-bottom: 1px dotted #aba3a3;
-}
-
-a:not(.sourceLine):hover {
-  background: hsla(30, 20%, 90%, 1);
-}
-
-a:not(.sourceLine), a:not(.sourceLine):hover {
-  transition: background 0.2s;
-}
-
-.xref {
-  text-transform: lowercase;
-  font-feature-settings: 'c2sc' 1;
-}
-
-.bordered {
-  border: 1px solid gray;
-}
-
-p+.indented {
-  margin-top: 1rem;
-}
-
-.indented+p {
-  margin-top: 1rem;
-}
-
-.indented, .book-description {
-  margin-left: 2.5rem;
-  margin-right: 2.5rem;
-  margin-bottom: 0.8rem;
-}
-
-.book-description {
-  margin-bottom: 1.2rem;
-}
-
-font-desc {
-  display: block;
-  font-size: 75%;
-  -webkit-columns: 2;
-}
-
-font-desc a.xref {
-  /* font-family: "concourse-c6"; */
-}
-
-ul.subnav {
-  column-count: 2;
-}
-
-ul.subnav li {
-  display: inline-block;
-  width: 100%;
-  margin-bottom: 0.8rem;
-}
-
-table.captioned {
-  width: 90%;
-}
-
-table.captioned+table.captioned {
-  margin-top: -0.5rem;
-}
-
-table.captioned td {
-  border: 0;
-  vertical-align: baseline;
-}
-
-.caption, .caption-runin {
-  /* font-family: "concourse-c4"; */
-}
-
-.caption-runin {
-  margin-right: 0.3rem;
-}
-
-.caption {
-  right: 4rem;
-  border: 0;
-}
-
-.os {
-  /* font-family: "concourse-c6"; */
-  text-transform: lowercase;
-  font-feature-settings: 'c2sc' 1;
-  ;
-}
-
-.os:after {
-  content: " | ";
-}
-
-sig {
-  display: block;
-  margin-top: 1.5rem;
-  text-align: right;
-  text-transform: lowercase;
-  font-feature-settings: 'c2sc' 1;
-}
-
-sig:before {
-  content: "— ";
 }
 
 .omission {
@@ -924,20 +946,33 @@ h4>code {
   font-size: 0.6rem !important;
 }
 
-ul ul, ol ol {
-  margin-top: 0.5rem;
-}
-
 ol li, ul li {
   margin-left: 1.5rem;
-  margin-top: 0.5rem;
+  margin-top: 0.3rem;
+  margin-bottom: 0.3rem;
   padding-left: 0rem;
   list-style-position: outside;
 }
 
+ul ul, ol ol, ul ol, ol ul {
+  margin: 0.3rem;
+}
+
+
 ol li {
   /* font-family: "concourse-t3-index"; */
   font-feature-settings: 'liga' 1, 'ss01' 0;
+}
+
+ol li p, ul li p {
+  margin-top: 0rem;
+  margin-bottom: 0rem;
+}
+
+ul ul li, ol ol li, ul ol li, ol ul li {
+  margin-left: 1rem;
+  margin-top: 0.1rem;
+  margin-bottom: 0.1rem;
 }
 
 .vscode-body ol li {
