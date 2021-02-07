@@ -101,8 +101,8 @@ interfaces and aggregates them in an abstract class `BloopLogger` (for
 simplicity we'll extend only one: `AbstractLogger`).
 
 <aside>
-(Scastie link to runnable code [here](https://scastie.scala-lang.org/gqI3gCsVTJuGWCeoZrpuHg).)
-
+(Scastie link <a
+href="https://scastie.scala-lang.org/gqI3gCsVTJuGWCeoZrpuHg">here</a>)
 </aside>
 
 ```scala
@@ -306,8 +306,8 @@ object MyApp {
 ## Conclusion
 
 <aside>
-Play around with all the code of this blog post [in this Scastie code snippet](https://scastie.scala-lang.org/D4cAr7CLT3u29CVDI5ddoA).
-
+Play around with all the code of this blog post <a href="https://scastie.scala-lang.org/D4cAr7CLT3u29CVDI5ddoA">in this Scastie
+code</a>.
 </aside>
 
 Overloading a method inherited from a third-party class is possible in Scala.

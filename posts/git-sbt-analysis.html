@@ -84,3 +84,987 @@ Back
 <p>I don't have any particular advice for maintainers of such projects except for identifying why so many build changes are required and trying to outsource them to external tools. Most of the build-related problems can be solved outside of sbt.</p>
 <p>[^h]: Note that the data only shows <em>committed</em> changes to sbt build files. I don't know how many changes were required before the commit got merged. Maybe a good approximation would be two or three local changes per one committed change, on average?</p>
 <p>[^p]: The analyzed projects have medium-to-large size and they have been sampled from the local Scala community build in my computer (they contain both libraries and applications). It's likely there's still a bias.</p>
+<!--*-markdown-*-->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="author" content="Jorge Vicente Cantero">
+
+<!-- Change this whenever a new blog post is done -->
+
+<meta property="og:title" content="Integrate Bloop with Bazel/Pants" />
+<meta property="og:description" content= "" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jvican.github.io/" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="jvican"/>
+<meta name="twitter:description" content=""/>
+<meta name="twitter:site" content="@https://www.twitter.com/jvican"/>
+
+<link rel="stylesheet" href="../css/monosocialiconsfont.css">
+<link rel="shortcut icon" href="../images/favicon.ico">
+<link rel="stylesheet" type="text/css" media="all" href="../css/styles.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/syntax-highlighting.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/et-book.css">
+<link href="//cloud.typenetwork.com/projects/3124/fontface.css/" rel="stylesheet" type="text/css">
+<script async defer data-domain="jorge.vican.me" src="https://stats.vican.me/js/index.js"></script>
+
+<title>
+Integrate Bloop with Bazel/Pants
+</title>
+</head>
+<body>
+<div id="top-stripe"></div>
+<div> <!-- required as a simple wrapper for position:absolute to work -->
+<div class="home-arrow">
+<a href="../index.html">
+<span>←</span>
+Back
+</a>
+</div>
+</div>
+
+<div id="content">
+<div id="doc">
+
+<h1 id="integrate-bloop-with-pantsbazel">Integrate Bloop with Pants/Bazel</h1>
+<p>What is the future of build tools such as Pants and Bazel in the Scala community? Can we accelerate the adoption rate by integrating these tools with the existing tooling ecosystem?</p>
+<h2 id="tools-101">Tools 101</h2>
+<p>Bloop is a Scala build server that compiles, tests and runs Scala fast.</p>
+<p>Pants and Bazel are scalable language-agnostic build systems. They support Scala and also need to compile, test and run Scala fast.</p>
+<p>Why would we want Bazel and Pants to integrate with Bloop? How could such an integration work given the seemingly competing goals of both tools?</p>
+<p>This article answers these questions and summarizes my excellent discussions with <a href="https://github.com/natansil">Natan</a> (contributor to the Bazel Scala rules @ Wix) and <a href="https://github.com/stuhood">Stu</a>, <a href="https://github.com/cosmicexplorer">Danny</a> and <a href="https://github.com/wiwa">Win</a> (core maintainers of Pants @ Twitter) during <a href="https://www.scaladays.org">Scala Days 2019</a>.</p>
+<h2 id="motivation">Motivation</h2>
+<p>There are <strong>three</strong> main arguments to motivate the integration.</p>
+<h3 id="1-straight-forward-integration-with-editors">#1: Straight-forward integration with editors</h3>
+<p>Adoption of build tools is limited by how well they integrate with existing developer tools. For example, how well you can use them from an editor.</p>
+<p>Currently, Pants and Bazel only support <a href="https://www.jetbrains.com/idea/">IntelliJ IDEA</a> via their custom IDEA plugins. These integrations are difficult to build, test and maintain.</p>
+<p>Bloop provides Bazel and Pants a quick way to integrate with the vast majority of editors used in the Scala community: <a href="https://www.jetbrains.com/idea/">IntelliJ IDEA</a> via the built-in BSP support in <code>intellij-scala</code> and VS Code, Vim, Emacs, Sublime Text 2, and Atom via <a href="https://www.scala-lang.org/2019/04/16/metals.html">Metals</a>.</p>
+<p>The integration is easy to build, test and maintain, it relieves build tool maintainers from implementing specific editor support for users and allows sharing improvements in editors support across build tools.</p>
+<h3 id="2-faster-local-developer-workflows">#2: Faster local developer workflows</h3>
+<p>Bazel and Pants promise reproducible builds. Reproducibility is a key property of builds. It gives developers confidence to deploy their code and reason about errors and bugs.</p>
+<p>To make compilation reproducible, incremental compilation is disabled and build requests trigger a full compilation of a target <code>foo</code> every time:</p>
+<ol type="1">
+<li>One of the build inputs of <code>foo</code> is modified (such as a source)</li>
+<li>Users ask for build tool diagnostics or a compilation of <code>foo</code></li>
+</ol>
+<p>A best practice in Bazel and Pants is to create fine-grained build targets of a handful of sources. Fine-grained build targets help reduce the overhead of full compiles: they compile faster, increase parallel compilations and enable incremental compilation at the build target level.</p>
+<p>However, even under ideal compilation times of 1 or 2 seconds per compiled build target, there are scenarios where instant feedback cannot be achieved:</p>
+<ol type="1">
+<li>Language servers such as Metals that forward diagnostics from Bazel and Pants will take 1 or 2 seconds at best to act on diagnostics, making the slowdown noticeable to users.
+<ul>
+<li>Metals also needs class files/semanticdb files to provide a rich editing experience (go to definition, find all references).</li>
+</ul></li>
+<li>Common scenarios such as changing a binary API can trigger many compilations downstream that take a long time to finish, slowing down even more the build diagnostics in the editor.</li>
+</ol>
+<p>An integration with Bloop speeds up local developer workflows by allowing local build clients (such as editors) to trigger incremental compiles while isolating these compiles completely from Bazel or Pants.</p>
+<p>In practice, this means build clients such as Metals can use Bloop to receive build diagnostics fast (in the order of 50-100ms) and collect class files in around 400-500ms, meaning developers feel instant feedback from the build tool.</p>
+<p>And Bloop guarantees compilation requests from Bazel and Pants will:</p>
+<ul>
+<li>Trigger a full compile per build target (same output for same input)</li>
+<li>Never conflict with other client actions</li>
+<li>Can be reused by clients that want fast, incremental compiles</li>
+</ul>
+<p>(These guarantees are unlocked by the latest <a href="tweet-1.3.2">Bloop v1.3.2 release</a>.)</p>
+<p>Integrating with Bloop brings Bazel/Pants users the best of both "worlds":</p>
+<ol type="1">
+<li>Bazel and Pants can still offer <em>reproducible builds</em> to users with <em>no cache pollution</em>. The cache engine in Bazel and Pants only gets to "see" class files produced by full compilations.</li>
+<li>Developers sensitive to slow feedback in the editor can opt-in for incremental compiles from their editor in a local machine. In case of rare incremental errors, they can trigger a compilation from the build tool manually to restore a clean state.</li>
+<li>Developers that don't want to compromise build reproducibility to get faster workflows can enable a Bloop configuration setting to keep using full compiles from their editor, while still getting faster compiles than they would if they used the compilation engine from Pants or Bazel.</li>
+</ol>
+<h3 id="3-state-of-the-art-compilation-engine">#3: State-of-the-art compilation engine</h3>
+<p>Currently, the Scala rules in Bazel and Pants implement their own compilation engine, interface directly with internal Scala compiler APIs and have a high memory and resource usage footprint because they spawn a JVM server that cannot be reused by external build clients.</p>
+<p>The advantages of using Bloop to compile Scala code are the following:</p>
+<ol type="1">
+<li><strong>Speed</strong>. Bloop implements a compilation engine that:
+<ol type="1">
+<li>is the fastest to this date</li>
+<li>has been tweaked to have the best performance defaults</li>
+<li>uses build pipelining to speed up full build graph compilations</li>
+<li>is benchmarked in 20 of the biggest Scala open source projects</li>
+<li>is continuosly improved and maintained by compiler engineers</li>
+</ol></li>
+<li><strong>Supports pure compilation</strong>. Bloop can recompile build targets from scratch if it's told to do so by the build tools.</li>
+<li><strong>Minimal use of resources</strong>. Bloop can be reused by any local build client, including those from other build tools and workspaces.</li>
+<li><strong>Lack of maintenance</strong>. The compilation engine doesn't need to be maintained by neither the Bazel nor the Pants team.</li>
+<li><strong>Simple integration</strong>. The integration is done via the Build Server Protocol, which requires only a few hundred lines of code and is decoupled from any change in the compiler binary APIs.</li>
+</ol>
+<h2 id="how-to-integrate-with-bloop">How to integrate with Bloop</h2>
+<p>There are several ways to integrate Bloop and Pants/Bazel with varying degrees of functionality.</p>
+<p>Which integration is the best ultimately depends on what clients want/don't want to give up and what are the key motivations behind the integration. The move from one integration oto another one can be done gradually.</p>
+<h3 id="barebone-integration-only-generating-bloop">Barebone integration: only generating <code>.bloop/</code></h3>
+<p>Bloop loads a build by reading <a href="https://scalacenter.github.io/bloop/docs/configuration-format">Bloop configuration files</a> from a <code>.bloop/</code> directory placed in the root workspace directory.</p>
+<p>A configuration file is a JSON file that aggregates all of the build inputs Bloop needs to compile, test and run. It is written to a directory in the file system to simplify access and caching when the build tool is not running but other clients are. Every time a configuration file in this directory changes, the Bloop server automatically reloads its build state.</p>
+<p>A barebone integration is the simplest Bloop integration: Pants or Bazel generate Bloop configuration files to a <code>.bloop</code> directory. Whenever there is a change in a build target, Bazel or Pants regenerate its configuration file again.</p>
+<p>Here's a diagram illustrating the barebone integration.</p>
+<p><img src="../images/bazel-pants-first-integration.svg" /></p>
+<p>Note that:</p>
+<ol type="1">
+<li>There are several clients talking to Bloop manned by developers</li>
+<li>The build tool and Bloop use different compilers/state</li>
+<li>Bazel/Pants write configuration files, Bloop only reads them</li>
+<li><code>.bloop</code> is the workspace directory where files are persisted</li>
+</ol>
+<h4 id="pros">Pros</h4>
+<ol type="1">
+<li>Easy to prototype (<a href="https://github.com/cosmicexplorer">Danny</a> and I implemented it in Pants in 4 hours)</li>
+<li>Out-of-the-box integration with Metals and CLI (motivation #1)</li>
+</ol>
+<h4 id="cons">Cons</h4>
+<ol type="1">
+<li>Requires writing all configurations to a <code>.bloop/</code> in the workspace.</li>
+<li>The Bloop compiles are not integrated with those of the build tool. This implies that this solution doesn't satisfy users that want:
+<ul>
+<li>A faster developer workflow (motivation #2)</li>
+<li>A state-of-the-art compilation engine (motivation #3)</li>
+</ul>
+<p>
+because the build tool and Bloop use their own compilers.
+</li>
+</ol>
+<h3 id="bsp-integration-generating-bloop-and-talking-bsp">BSP integration: generating <code>.bloop/</code> and talking BSP</h3>
+<p>To enable a solution that not only provides the possibility of using Bazel/Pants from any editor but also has a faster developer workflow than the status quo, we need to look at ways we can enable Bloop to do the heavy-lifting of compilation.</p>
+<p>In a way, Bazel and Pants become build clients to the BSP build server in Bloop:</p>
+<ol type="1">
+<li>A compile in Bazel or Pants maps to a compile request to Bloop</li>
+<li>Bazel and Pants receive compilation logs and class files from Bloop</li>
+</ol>
+<p>The following diagram illustrates how the architecture looks like:</p>
+<p><img src="../images/bazel-pants-bsp-integration.svg" /></p>
+<p>We can see that Bazel / Pants no longer own compilers and that they instead communicate with the Bloop server via <a href="https://github.com/scalacenter/bsp">BSP</a>. To implement that, the build tools can use <code>bsp4j</code>, a tiny Java library that implements the protocol and allows the client to listen to all results/notifications from the build tool.</p>
+<p>There are, however, different ways Bazel or Pants can offload compilation to Bloop. Let's illustrate both of them with a simple build.</p>
+<p><img src="../images/build-graph-example.svg" /></p>
+<p>The straight-forward mechanism to offload compilation is to let the Bazel/Pants build tool drive the compilation itself.</p>
+<p>Upon the <em>first</em> compilation of a target <code>C</code>, the build tool would:</p>
+<ol type="1">
+<li>Make sure there is an open BSP connection with the Bloop server.
+<ul>
+<li>If not, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will start it</li>
+</ul></li>
+<li>Visit <code>C</code>, find dependency <code>B</code> is not compiled.</li>
+<li>Visit <code>B</code>, find dependency <code>A</code> is not compiled.</li>
+<li>Visit <code>A</code>, no more dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>A</code></li>
+<li>Send Bloop compile request for <code>A</code> to write class files</li>
+</ol></li>
+<li>Come back to <code>B</code>, no more uncompiled dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>B</code></li>
+<li>Send Bloop compile request for <code>B</code> to write class files</li>
+</ol></li>
+<li>Come back to <code>C</code>, no more uncompiled dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>C</code></li>
+<li>Send Bloop compile request for <code>C</code> to write class files</li>
+</ol></li>
+</ol>
+<p>(The build tool can safely visit a build graph in parallel.)</p>
+<p>This mechanism works if one wants the build tool to own and control the way compilations are run, but it's slower than letting Bloop compile a subset of the build graph on its own, where Bloop can (among other actions):</p>
+<ul>
+<li>Start the compilation of a project before its dependencies are finished (e.g. start compiling <code>B</code> right after <code>A</code> is typechecked). This is the so-called build pipelining.</li>
+<li>Compile faster by populating symbols from in-memory stores instead of reading class files from the file system.</li>
+<li>Amortize the cost of starting a compilation by compiling a list of build targets at the same time.</li>
+</ul>
+<p>The build tool could benefit from all of these actions by just changing how it maps compilation requests to the Bloop BSP server:</p>
+<ol type="1">
+<li>Make sure there is an open BSP connection with the Bloop server.
+<ul>
+<li>If not, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will start it</li>
+</ul></li>
+<li>Visit <code>C</code>, find dependency <code>B</code> has no config.</li>
+<li>Visit <code>B</code>, find dependency <code>A</code> has no config.</li>
+<li>Visit <code>A</code>, no more dependencies, then generate config for <code>A</code></li>
+<li>Come back to <code>B</code>, no more dependencies, generate config for <code>B</code></li>
+<li>Come back to <code>C</code>, no more dependencies, generate config for <code>C</code></li>
+<li>Send a Bloop compile request from <code>C</code>.
+<ul>
+<li>Bloop will start compiling the build graph <em>in the background</em>.</li>
+<li>After building a target, Bloop sends a notification to client.</li>
+</ul></li>
+<li>Visit <code>B</code>, find dependency <code>A</code> is not compiled.</li>
+<li>Visit <code>A</code>, wait for Bloop's end notification for <code>A</code>.</li>
+<li>Come back to <code>B</code>, wait for Bloop's end notification for <code>B</code>.</li>
+<li>Come back to <code>C</code>, wait for Bloop's end notification for <code>C</code>.</li>
+</ol>
+<p>Right after receiving the notifications from the server, the build tool will find all the compilation products written in the classes directory specified in the configuration file. Meaning the build tool can immediately start evaluating tasks that depend on compilation products for that project.</p>
+<p>(Sbt will offload compilation to Bloop by following this strategy in the next Bloop release.)</p>
+<h4 id="pros-1">Pros</h4>
+<ol type="1">
+<li>Out-of-the-box integration with Metals and CLI (motivation #1)</li>
+<li>A faster local developer workflow (motivation #2)</li>
+<li>A state-of-the-art compilation engine that compiles the build graph as fast as possible for the build tool, with a simple protocol that decouples the build tools from compiler internals</li>
+</ol>
+<h4 id="cons-1">Cons</h4>
+<ol type="1">
+<li>Not as straight-forward to implement as the first shallow integration, but still doable and abstracted away from compiler internals.</li>
+<li>Requires writing all configurations to a <code>.bloop/</code> in the workspace.</li>
+</ol>
+<h3 id="manual-binary-dependency">Manual binary dependency</h3>
+<p>It is <em>possible</em> (but <strong>discouraged</strong>) to use Bloop's compilation engine via a library dependency and interface directly with Bloop internal compiler APIs. However, most of the nice performance advantages of using Bloop will be lost as those are implemented in how the schedluling of build targets is implemented.</p>
+<h4 id="pros-2">Pros</h4>
+<ol type="1">
+<li>Can yield some compile speedups if the internals are used correctly</li>
+</ol>
+<h4 id="cons-2">Cons</h4>
+<ol type="1">
+<li>No out-of-the-box integration with Metals and other clients (motivation #1)</li>
+<li>Same local developer workflow as now (motivation #2)</li>
+<li>Difficult to implement and maintain (similar situation as the status quo)
+<ul>
+<li>Bloop compiler APIs change frequently</li>
+<li>Bloop compiler APIs do not promise binary compatibility</li>
+</ul></li>
+</ol>
+<h2 id="ci-compatibility">CI compatibility</h2>
+<p>The CI doesn't pose any integration problems for Bloop. When Bazel runs compilation in the build farm, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will open a connection with a Bloop server and start compiling, in a similar way to how the current rules Scala in Bazel or Pants work.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>This document motivates an integration with Bloop, explains why build tools such as Pants and Bazel would like to integrate with it and what are the consequences to their users.</p>
+<p>This document intentionally goes into not only ideas but also implementation details to show how a full end-to-end integration from Bazel or Pants to Bloop is possible and can be implemented. Despite a few minor improvements missing in the latest Bloop release, build tool engineers could implement an integration that works tomorrow while solving fundamental problems present today.</p>
+<!--*-markdown-*-->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="author" content="Jorge Vicente Cantero">
+
+<!-- Change this whenever a new blog post is done -->
+
+<meta property="og:title" content="Overload methods with extra parameter lists" />
+<meta property="og:description" content="A technique to shadow and overload a method with extra parameter lists." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jvican.github.io/" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="jvican"/>
+<meta name="twitter:description" content=""/>
+<meta name="twitter:site" content="@https://www.twitter.com/jvican"/>
+
+<link rel="stylesheet" href="../css/monosocialiconsfont.css">
+<link rel="shortcut icon" href="../images/favicon.ico">
+<link rel="stylesheet" type="text/css" media="all" href="../css/styles.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/syntax-highlighting.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/et-book.css">
+<link href="//cloud.typenetwork.com/projects/3124/fontface.css/" rel="stylesheet" type="text/css">
+<script async defer data-domain="jorge.vican.me" src="https://stats.vican.me/js/index.js"></script>
+
+<!--
+Required jquery snippet to replace top-level divs wrapping code generated by
+pandoc with spans. Otherwise, the reader mode in Safari doesn't work.
+ -->
+
+<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+
+<script>
+$(function() {
+    $("pre > code").each(function(i, block) {
+        var parentDiv = $(this).parent().parent();
+        if (parentDiv != null && parentDiv.hasClass("sourceCode")) {
+          parentDiv.replaceWith(function() {
+              return "<span>" + this.innerHTML + "</span>";
+          });
+        }
+    });
+});
+</script>
+
+<title>
+Overload methods with extra parameter lists
+</title>
+</head>
+<body>
+<div id="top-stripe"></div>
+<div> <!-- required as a simple wrapper for position:absolute to work -->
+<div class="home-arrow">
+<a href="../index.html">
+<span>←</span>
+Back
+</a>
+</div>
+</div>
+<div id="content">
+<article id="doc">
+
+<h1 id="overload-methods-with-parameter-lists">Overload methods with parameter lists</h1>
+<p>Have you ever wondered if you can enrich a method that you need to implement in a class to get more information from the call site?</p>
+<p>For example, let's say you have method <code>debug</code> in a logger interface <code>AbstractLogger</code>. Can we implement the logger interface and at the same time overload <code>debug</code> with another version that takes more parameters every time the users of our API call <code>debug</code>?</p>
+<p>In fact, can we do this without breaking binary compatibility in the interface that defines <code>debug</code> and ensuring that the users of our API can only call the enriched method?</p>
+<p>I asked myself this question three days ago and I came up with a solution that I think it's worth a short explanation in this blog post. My use case was triggered by <a href="https://github.com/scalacenter/bloop/issues/333">a feature I wanted to add</a> to <a href="https://github.com/scalacenter/bloop">bloop</a> (a fast compilation server for Scala).</p>
+<h2 id="what-is-the-problem">What is the Problem?</h2>
+<p>It's always amazed me how verbose the debug log level can be under tools such as sbt. This verbosity typically stands in the way of finding the cause for a resolution or compilation misbehavior. Running <code>debug</code> on the sbt shell would dump more than 20.000 logs in my screen, enough to overflow my terminal buffer and lose potentially important debug logs on the way.</p>
+<p>I've found myself often in this scenario. It feels like you're trying to find a needle in a haystack. It can be better if you're lucky enough to know the shape of the debug messages you're after (you can grep), but this is rarely the case.</p>
+<p>I wanted bloop users to have a better time debugging a compilation or testing issues by narrowing down the scope of the debug logs with filters. <code>bloop test my-app --debug test</code> would only dump debug logs related to the test task, instead of all the other debug messages in unrelated tasks.</p>
+<p>The logging infrastructure in <a href="https://github.com/scalacenter/bloop">bloop</a> implements several third-party <code>Logger</code> interfaces and aggregates them in an abstract class <code>BloopLogger</code> (for simplicity we'll extend only one: <code>AbstractLogger</code>).</p>
+<aside>
+(Scastie link to runnable code [here](https://scastie.scala-lang.org/gqI3gCsVTJuGWCeoZrpuHg).)
+
+</aside>
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// A third-party logger interface (in our classpath)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract</span> <span class="kw">class</span> AbstractLogger {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">debug</span>(msg: String): Unit</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">info</span>(msg: String): Unit</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">error</span>(msg: String): Unit</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// The logger interface that we use in all the bloop APIs</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract</span> <span class="kw">class</span> BloopLogger <span class="kw">extends</span> AbstractLogger</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// One simple implementation of a bloop logger</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SimpleLogger <span class="kw">extends</span> BloopLogger {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Debug: $msg&quot;</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">info</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Info: $msg&quot;</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">error</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Error: $msg&quot;</span>)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>We'd like to add an enriched version of <code>debug</code> that looks like <code>debug(msg: String)(implicit ctx: DebugContext)</code>, where <code>DebugContext</code> identifies the context where <code>debug</code> is called. (We decide to make the parameter implicit, but there's no reason why you shouldn't be able to make it explicit.)</p>
+<p>Third-party logging APIs are frozen and cannot be modified, so we cannot change the original <code>debug</code> method signature in <code>AbstractLogger</code>.</p>
+<p>Besides, we don't want to add an special method <code>debugWithFilter</code> that we would need to teach to all Bloop project contributors. We would spend a lot of time telling contributors that they must not use the normal <code>debug</code>, but <code>debugWithFilter</code> because bla.</p>
+<p>What we really want is to <strong>shadow the original <code>debug</code> method</strong> with the "enriched" <code>debug</code> method so that only the latter can be used by default.</p>
+<p>So, wrapping up, we don't only want to overload a method, but also shadow it, and we want to do that without changing the public API of the interfaces we implement. It looks hard but let's persevere.</p>
+<p>How do we go about implementing this feature?</p>
+<h2 id="a-first-approach">A First Approach</h2>
+<p>We know beforehand the compiler will tell us there's some kind of ambiguity between the two <code>debug</code> methods, but bear with me and let's write the simplest possible solution: let's add the new <code>debug</code> method in <code>SimpleLogger</code> and then use it in a small <code>main</code> method.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// The debug context that we want to pass implicitly</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">sealed</span> <span class="kw">trait</span> DebugContext</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">object</span> DebugContext {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">case</span> <span class="kw">object</span> Ctx1 <span class="kw">extends</span> DebugContext</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">case</span> <span class="kw">object</span> Ctx2 <span class="kw">extends</span> DebugContext</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// The logger interface that we use in all the bloop APIs</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract</span> <span class="kw">class</span> BloopLogger <span class="kw">extends</span> AbstractLogger {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">debug</span>(msg: String)(<span class="kw">implicit</span> ctx: DebugContext): Unit</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// One simple implementation of a bloop logger</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">final</span> <span class="kw">class</span> SimpleLogger <span class="kw">extends</span> BloopLogger {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Debug: $msg&quot;</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">info</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Info: $msg&quot;</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">error</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Error: $msg&quot;</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String)(<span class="kw">implicit</span> ctx: DebugContext): Unit =</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(s<span class="st">&quot;Debug: $msg&quot;</span>)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co">// The application that is the use site of our logger API</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="kw">object</span> MyApp {</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">main</span>(args: Array[String]): Unit = {</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">val</span> logger = <span class="kw">new</span> SimpleLogger</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    logger.<span class="fu">debug</span>(<span class="st">&quot;This is a debug message&quot;</span>)</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When we compile the above code, the compiler emits the following error:</p>
+<pre><code>ambiguous reference to overloaded definition,
+  both method debug in class SimpleLogger of type (msg: String)(implicit ctx: DebugContext)Unit
+  and  method debug in class SimpleLogger of type (msg: String)Unit
+  match argument types (String)</code></pre>
+<p>(Scastie link to runnable code <a href="https://scastie.scala-lang.org/R4bck5yoR4SJ0kjnIppJHw">here</a>.)</p>
+<p>Can we work around this ambiguous reference? Let's consider all our possibilities.</p>
+<p>If we try to change the call-site to select the most specific debug method (<code>logger.debug("This is a debug message")(DebugContext.Ctx1)</code>), the error persists.</p>
+<p>If we try to move the new debug definition to the implementation class, then it won't be usable by APIs using <code>BloopLogger</code>, which the rest of our codebase does because we have several implementations.</p>
+<p>It looks like everything is lost. But this is the moment when knowing or intuiting that the ambiguity checker inside the compiler relies on the linearization order saves your day.</p>
+<h2 id="a-solution-that-relies-on-class-linearization">A Solution that Relies on Class Linearization</h2>
+<p>First off, what's the linearization order? There are a few good resources in Internet, such as <a href="http://ktoso.github.io/scala-types-of-types/#type-linearization-vs-the-diamond-problem">this one</a>, that explain it well. But let me oversimplify and say that you can think of the linearization order as the order with which Scala will initialize an instance of a given class and all its super classes (or traits).</p>
+<p>When Scala looks up the definition of a member, it relies on the linearization order to pick the first unambiguous candidate. A quick example:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">trait</span> A</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">trait</span> B <span class="kw">extends</span> A { <span class="kw">def</span> foo: String }</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">trait</span> C</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> D <span class="kw">extends</span> C <span class="kw">with</span> B</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">// The linearization order to find `foo` is `D -&gt; C -&gt; B`</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>(<span class="kw">new</span> D).<span class="fu">foo</span></span></code></pre></div>
+<p>The same procedure happens when Scala checks for ambiguous references and emits errors such as the ones we got before. As this example illustrates, the compiler will not exhaustively look for definitions of <code>foo</code> in all transitive super classes, it stops at the first search hit.</p>
+<p>This insight means that we can modify our previous example such that our enriched <code>debug</code> method is always found first. This way, we dodge the ambiguous reference to overloaded <code>debug</code>s.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// We make `DebugLogger` private at the logging package level to avoid undesired users</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span>[logging] <span class="kw">abstract</span> <span class="kw">class</span> DebugLogger <span class="kw">extends</span> AbstractLogger {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">protected</span> <span class="kw">def</span> <span class="fu">printDebug</span>(msg: String): Unit</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String): Unit = <span class="fu">printDebug</span>(msg)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">// The logger interface that we use in all the bloop APIs</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract</span> <span class="kw">class</span> BloopLogger <span class="kw">extends</span> DebugLogger {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">debug</span>(msg: String)(<span class="kw">implicit</span> ctx: DebugContext): Unit</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co">// One simple implementation of a bloop logger</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">final</span> <span class="kw">class</span> SimpleLogger <span class="kw">extends</span> BloopLogger {</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">info</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Info: $msg&quot;</span>)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">error</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Error: $msg&quot;</span>)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">protected</span> <span class="kw">def</span> <span class="fu">printDebug</span>(msg: String): Unit =</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(s<span class="st">&quot;Debug: $msg&quot;</span>)</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String)(<span class="kw">implicit</span> ctx: DebugContext): Unit =</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">printDebug</span>(s<span class="st">&quot;$msg ($ctx)&quot;</span>)</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The trick to make the previous code work is defining the implementation of the simple <code>debug</code> method in <code>DebugLogger</code> and making <code>BloopLogger</code> extend <code>DebugLogger</code>. We have introduced a <code>printDebug</code> to avoid inter-dependencies between the two <code>debug</code> methods, as they will cause other reference errors.</p>
+<p>Once we have defined the method we want to shadow in a super class of the class we want to support in our API (in this case <code>BloopLogger</code>), the logger implementations only need to define the enriched <code>debug</code> method.</p>
+<p>Users of this API <strong>will not</strong> be able to call the simple <code>debug</code> <strong>unless</strong> they do an upcast to the third-party logger <code>AbstractLogger</code>. This is intended -- the goal is to have a good default, not to make it completely impossible to call the simple debug, so make sure that it still has a sensible implementation.</p>
+<p>In Bloop's case, the third-party logger API is never exposed and I recommend doing so in your application or library if you can.</p>
+<p>With the above code, compiling our simple <code>MyApp</code> fails compilation with a <code>could not find implicit value for parameter ctx: DebugContext</code>, which confirms us that Scala is successfully selecting the right method.</p>
+<p>We can fix it by passing the context either implicitly or explicitly.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">object</span> MyApp {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">main</span>(args: Array[String]): Unit = {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;Running demo application for https://jorge.vican.me/post/overload-methods-with-more-parameter-lists/&quot;</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">implicit</span> <span class="kw">val</span> ctx: DebugContext = DebugContext.<span class="fu">Ctx1</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">val</span> logger = <span class="kw">new</span> SimpleLogger</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    logger.<span class="fu">debug</span>(<span class="st">&quot;This is a debug message&quot;</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="complete-scastie-example">Complete Scastie Example</h3>
+<h2 id="conclusion-1">Conclusion</h2>
+<aside>
+Play around with all the code of this blog post <a href="https://scastie.scala-lang.org/D4cAr7CLT3u29CVDI5ddoA">in this Scastie
+code</a>.
+</aside>
+
+<p>Overloading a method inherited from a third-party class is possible in Scala. It requires a little bit of gymnastics, but once we're familiar with the technique we can apply it in many other scenarios.</p>
+<p>The same technique works with new explicit parameters (instead of implicit parameters). They key point is that we can overload methods by adding extra parameter lists to their definition, playing with the linearization order and defining the methods in the right place.</p>
+<!--*-markdown-*-->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="author" content="Jorge Vicente Cantero">
+
+<!-- Change this whenever a new blog post is done -->
+
+<meta property="og:title" content="Profiling and reducing compilation times" />
+<meta property="og:description" content= "A tour on profiling compile times with `scalac-profiling` to understand and reduce the cost of automatic typeclass derivation." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jvican.github.io/" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="jvican"/>
+<meta name="twitter:description" content=""/>
+<meta name="twitter:site" content="@https://www.twitter.com/jvican"/>
+
+<link rel="stylesheet" href="../css/monosocialiconsfont.css">
+<link rel="shortcut icon" href="../images/favicon.ico">
+<link rel="stylesheet" type="text/css" media="all" href="../css/styles.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/syntax-highlighting.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/et-book.css">
+<link href="//cloud.typenetwork.com/projects/3124/fontface.css/" rel="stylesheet" type="text/css">
+<script async defer data-domain="jorge.vican.me" src="https://stats.vican.me/js/index.js"></script>
+
+<title>
+Profiling and reducing compile times of typeclass derivation
+</title>
+</head>
+<body>
+<div id="top-stripe"></div>
+<div> <!-- required as a simple wrapper for position:absolute to work -->
+<div class="home-arrow">
+<a href="../index.html">
+<span>←</span>
+Back
+</a>
+</div>
+</div>
+<div id="content">
+<div id="doc">
+
+<h1 id="profiling-and-reducing-compilation-times-of-typeclass-derivation">Profiling and reducing compilation times of typeclass derivation</h1>
+<p>I have recently published a blog post in the official Scala website about my recent work on <a href="https://github.com/scalacenter/scalac-profiling"><code>scalac-profiling</code></a>.</p>
+<p><code>scalac-profiling</code> is a new compiler plugin to complement my recent work on the compiler statistics/sampling infrastructure merged in Scala 2.12.5 and available from then on.</p>
+<p>In the blog post I talk about compilation performance, typeclass derivation, the expensive price of derivation via implicits and how to <code>scalac-profiling</code> to speed up the compile times of a Bloop module by <strong>8x</strong>.</p>
+<div class="omission"></div>
+
+<p>Read more in <a href="https://www.scala-lang.org/blog/2018/06/04/scalac-profiling.html"><code>scala-lang</code></a>.</p>
+<!--*-markdown-*-->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="author" content="Jorge Vicente Cantero">
+
+<!-- Change this whenever a new blog post is done -->
+
+<meta property="og:title" content="Integrate Bloop with Bazel/Pants" />
+<meta property="og:description" content= "" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jvican.github.io/" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="jvican"/>
+<meta name="twitter:description" content=""/>
+<meta name="twitter:site" content="@https://www.twitter.com/jvican"/>
+
+<link rel="stylesheet" href="../css/monosocialiconsfont.css">
+<link rel="shortcut icon" href="../images/favicon.ico">
+<link rel="stylesheet" type="text/css" media="all" href="../css/styles.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/syntax-highlighting.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/et-book.css">
+<link href="//cloud.typenetwork.com/projects/3124/fontface.css/" rel="stylesheet" type="text/css">
+<script async defer data-domain="jorge.vican.me" src="https://stats.vican.me/js/index.js"></script>
+
+<title>
+Integrate Bloop with Bazel/Pants
+</title>
+</head>
+<body>
+<div id="top-stripe"></div>
+<div> <!-- required as a simple wrapper for position:absolute to work -->
+<div class="home-arrow">
+<a href="../index.html">
+<span>←</span>
+Back
+</a>
+</div>
+</div>
+
+<div id="content">
+<div id="doc">
+
+<h1 id="integrate-bloop-with-pantsbazel">Integrate Bloop with Pants/Bazel</h1>
+<p>What is the future of build tools such as Pants and Bazel in the Scala community? Can we accelerate the adoption rate by integrating these tools with the existing tooling ecosystem?</p>
+<h2 id="tools-101">Tools 101</h2>
+<p>Bloop is a Scala build server that compiles, tests and runs Scala fast.</p>
+<p>Pants and Bazel are scalable language-agnostic build systems. They support Scala and also need to compile, test and run Scala fast.</p>
+<p>Why would we want Bazel and Pants to integrate with Bloop? How could such an integration work given the seemingly competing goals of both tools?</p>
+<p>This article answers these questions and summarizes my excellent discussions with <a href="https://github.com/natansil">Natan</a> (contributor to the Bazel Scala rules @ Wix) and <a href="https://github.com/stuhood">Stu</a>, <a href="https://github.com/cosmicexplorer">Danny</a> and <a href="https://github.com/wiwa">Win</a> (core maintainers of Pants @ Twitter) during <a href="https://www.scaladays.org">Scala Days 2019</a>.</p>
+<h2 id="motivation">Motivation</h2>
+<p>There are <strong>three</strong> main arguments to motivate the integration.</p>
+<h3 id="1-straight-forward-integration-with-editors">#1: Straight-forward integration with editors</h3>
+<p>Adoption of build tools is limited by how well they integrate with existing developer tools. For example, how well you can use them from an editor.</p>
+<p>Currently, Pants and Bazel only support <a href="https://www.jetbrains.com/idea/">IntelliJ IDEA</a> via their custom IDEA plugins. These integrations are difficult to build, test and maintain.</p>
+<p>Bloop provides Bazel and Pants a quick way to integrate with the vast majority of editors used in the Scala community: <a href="https://www.jetbrains.com/idea/">IntelliJ IDEA</a> via the built-in BSP support in <code>intellij-scala</code> and VS Code, Vim, Emacs, Sublime Text 2, and Atom via <a href="https://www.scala-lang.org/2019/04/16/metals.html">Metals</a>.</p>
+<p>The integration is easy to build, test and maintain, it relieves build tool maintainers from implementing specific editor support for users and allows sharing improvements in editors support across build tools.</p>
+<h3 id="2-faster-local-developer-workflows">#2: Faster local developer workflows</h3>
+<p>Bazel and Pants promise reproducible builds. Reproducibility is a key property of builds. It gives developers confidence to deploy their code and reason about errors and bugs.</p>
+<p>To make compilation reproducible, incremental compilation is disabled and build requests trigger a full compilation of a target <code>foo</code> every time:</p>
+<ol type="1">
+<li>One of the build inputs of <code>foo</code> is modified (such as a source)</li>
+<li>Users ask for build tool diagnostics or a compilation of <code>foo</code></li>
+</ol>
+<p>A best practice in Bazel and Pants is to create fine-grained build targets of a handful of sources. Fine-grained build targets help reduce the overhead of full compiles: they compile faster, increase parallel compilations and enable incremental compilation at the build target level.</p>
+<p>However, even under ideal compilation times of 1 or 2 seconds per compiled build target, there are scenarios where instant feedback cannot be achieved:</p>
+<ol type="1">
+<li>Language servers such as Metals that forward diagnostics from Bazel and Pants will take 1 or 2 seconds at best to act on diagnostics, making the slowdown noticeable to users.
+<ul>
+<li>Metals also needs class files/semanticdb files to provide a rich editing experience (go to definition, find all references).</li>
+</ul></li>
+<li>Common scenarios such as changing a binary API can trigger many compilations downstream that take a long time to finish, slowing down even more the build diagnostics in the editor.</li>
+</ol>
+<p>An integration with Bloop speeds up local developer workflows by allowing local build clients (such as editors) to trigger incremental compiles while isolating these compiles completely from Bazel or Pants.</p>
+<p>In practice, this means build clients such as Metals can use Bloop to receive build diagnostics fast (in the order of 50-100ms) and collect class files in around 400-500ms, meaning developers feel instant feedback from the build tool.</p>
+<p>And Bloop guarantees compilation requests from Bazel and Pants will:</p>
+<ul>
+<li>Trigger a full compile per build target (same output for same input)</li>
+<li>Never conflict with other client actions</li>
+<li>Can be reused by clients that want fast, incremental compiles</li>
+</ul>
+<p>(These guarantees are unlocked by the latest <a href="tweet-1.3.2">Bloop v1.3.2 release</a>.)</p>
+<p>Integrating with Bloop brings Bazel/Pants users the best of both "worlds":</p>
+<ol type="1">
+<li>Bazel and Pants can still offer <em>reproducible builds</em> to users with <em>no cache pollution</em>. The cache engine in Bazel and Pants only gets to "see" class files produced by full compilations.</li>
+<li>Developers sensitive to slow feedback in the editor can opt-in for incremental compiles from their editor in a local machine. In case of rare incremental errors, they can trigger a compilation from the build tool manually to restore a clean state.</li>
+<li>Developers that don't want to compromise build reproducibility to get faster workflows can enable a Bloop configuration setting to keep using full compiles from their editor, while still getting faster compiles than they would if they used the compilation engine from Pants or Bazel.</li>
+</ol>
+<h3 id="3-state-of-the-art-compilation-engine">#3: State-of-the-art compilation engine</h3>
+<p>Currently, the Scala rules in Bazel and Pants implement their own compilation engine, interface directly with internal Scala compiler APIs and have a high memory and resource usage footprint because they spawn a JVM server that cannot be reused by external build clients.</p>
+<p>The advantages of using Bloop to compile Scala code are the following:</p>
+<ol type="1">
+<li><strong>Speed</strong>. Bloop implements a compilation engine that:
+<ol type="1">
+<li>is the fastest to this date</li>
+<li>has been tweaked to have the best performance defaults</li>
+<li>uses build pipelining to speed up full build graph compilations</li>
+<li>is benchmarked in 20 of the biggest Scala open source projects</li>
+<li>is continuosly improved and maintained by compiler engineers</li>
+</ol></li>
+<li><strong>Supports pure compilation</strong>. Bloop can recompile build targets from scratch if it's told to do so by the build tools.</li>
+<li><strong>Minimal use of resources</strong>. Bloop can be reused by any local build client, including those from other build tools and workspaces.</li>
+<li><strong>Lack of maintenance</strong>. The compilation engine doesn't need to be maintained by neither the Bazel nor the Pants team.</li>
+<li><strong>Simple integration</strong>. The integration is done via the Build Server Protocol, which requires only a few hundred lines of code and is decoupled from any change in the compiler binary APIs.</li>
+</ol>
+<h2 id="how-to-integrate-with-bloop">How to integrate with Bloop</h2>
+<p>There are several ways to integrate Bloop and Pants/Bazel with varying degrees of functionality.</p>
+<p>Which integration is the best ultimately depends on what clients want/don't want to give up and what are the key motivations behind the integration. The move from one integration oto another one can be done gradually.</p>
+<h3 id="barebone-integration-only-generating-bloop">Barebone integration: only generating <code>.bloop/</code></h3>
+<p>Bloop loads a build by reading <a href="https://scalacenter.github.io/bloop/docs/configuration-format">Bloop configuration files</a> from a <code>.bloop/</code> directory placed in the root workspace directory.</p>
+<p>A configuration file is a JSON file that aggregates all of the build inputs Bloop needs to compile, test and run. It is written to a directory in the file system to simplify access and caching when the build tool is not running but other clients are. Every time a configuration file in this directory changes, the Bloop server automatically reloads its build state.</p>
+<p>A barebone integration is the simplest Bloop integration: Pants or Bazel generate Bloop configuration files to a <code>.bloop</code> directory. Whenever there is a change in a build target, Bazel or Pants regenerate its configuration file again.</p>
+<p>Here's a diagram illustrating the barebone integration.</p>
+<p><img src="../images/bazel-pants-first-integration.svg" /></p>
+<p>Note that:</p>
+<ol type="1">
+<li>There are several clients talking to Bloop manned by developers</li>
+<li>The build tool and Bloop use different compilers/state</li>
+<li>Bazel/Pants write configuration files, Bloop only reads them</li>
+<li><code>.bloop</code> is the workspace directory where files are persisted</li>
+</ol>
+<h4 id="pros">Pros</h4>
+<ol type="1">
+<li>Easy to prototype (<a href="https://github.com/cosmicexplorer">Danny</a> and I implemented it in Pants in 4 hours)</li>
+<li>Out-of-the-box integration with Metals and CLI (motivation #1)</li>
+</ol>
+<h4 id="cons">Cons</h4>
+<ol type="1">
+<li>Requires writing all configurations to a <code>.bloop/</code> in the workspace.</li>
+<li>The Bloop compiles are not integrated with those of the build tool. This implies that this solution doesn't satisfy users that want:
+<ul>
+<li>A faster developer workflow (motivation #2)</li>
+<li>A state-of-the-art compilation engine (motivation #3)</li>
+</ul>
+<p>
+because the build tool and Bloop use their own compilers.
+</li>
+</ol>
+<h3 id="bsp-integration-generating-bloop-and-talking-bsp">BSP integration: generating <code>.bloop/</code> and talking BSP</h3>
+<p>To enable a solution that not only provides the possibility of using Bazel/Pants from any editor but also has a faster developer workflow than the status quo, we need to look at ways we can enable Bloop to do the heavy-lifting of compilation.</p>
+<p>In a way, Bazel and Pants become build clients to the BSP build server in Bloop:</p>
+<ol type="1">
+<li>A compile in Bazel or Pants maps to a compile request to Bloop</li>
+<li>Bazel and Pants receive compilation logs and class files from Bloop</li>
+</ol>
+<p>The following diagram illustrates how the architecture looks like:</p>
+<p><img src="../images/bazel-pants-bsp-integration.svg" /></p>
+<p>We can see that Bazel / Pants no longer own compilers and that they instead communicate with the Bloop server via <a href="https://github.com/scalacenter/bsp">BSP</a>. To implement that, the build tools can use <code>bsp4j</code>, a tiny Java library that implements the protocol and allows the client to listen to all results/notifications from the build tool.</p>
+<p>There are, however, different ways Bazel or Pants can offload compilation to Bloop. Let's illustrate both of them with a simple build.</p>
+<p><img src="../images/build-graph-example.svg" /></p>
+<p>The straight-forward mechanism to offload compilation is to let the Bazel/Pants build tool drive the compilation itself.</p>
+<p>Upon the <em>first</em> compilation of a target <code>C</code>, the build tool would:</p>
+<ol type="1">
+<li>Make sure there is an open BSP connection with the Bloop server.
+<ul>
+<li>If not, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will start it</li>
+</ul></li>
+<li>Visit <code>C</code>, find dependency <code>B</code> is not compiled.</li>
+<li>Visit <code>B</code>, find dependency <code>A</code> is not compiled.</li>
+<li>Visit <code>A</code>, no more dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>A</code></li>
+<li>Send Bloop compile request for <code>A</code> to write class files</li>
+</ol></li>
+<li>Come back to <code>B</code>, no more uncompiled dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>B</code></li>
+<li>Send Bloop compile request for <code>B</code> to write class files</li>
+</ol></li>
+<li>Come back to <code>C</code>, no more uncompiled dependencies, then:
+<ol type="1">
+<li>Generate configuration file for <code>C</code></li>
+<li>Send Bloop compile request for <code>C</code> to write class files</li>
+</ol></li>
+</ol>
+<p>(The build tool can safely visit a build graph in parallel.)</p>
+<p>This mechanism works if one wants the build tool to own and control the way compilations are run, but it's slower than letting Bloop compile a subset of the build graph on its own, where Bloop can (among other actions):</p>
+<ul>
+<li>Start the compilation of a project before its dependencies are finished (e.g. start compiling <code>B</code> right after <code>A</code> is typechecked). This is the so-called build pipelining.</li>
+<li>Compile faster by populating symbols from in-memory stores instead of reading class files from the file system.</li>
+<li>Amortize the cost of starting a compilation by compiling a list of build targets at the same time.</li>
+</ul>
+<p>The build tool could benefit from all of these actions by just changing how it maps compilation requests to the Bloop BSP server:</p>
+<ol type="1">
+<li>Make sure there is an open BSP connection with the Bloop server.
+<ul>
+<li>If not, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will start it</li>
+</ul></li>
+<li>Visit <code>C</code>, find dependency <code>B</code> has no config.</li>
+<li>Visit <code>B</code>, find dependency <code>A</code> has no config.</li>
+<li>Visit <code>A</code>, no more dependencies, then generate config for <code>A</code></li>
+<li>Come back to <code>B</code>, no more dependencies, generate config for <code>B</code></li>
+<li>Come back to <code>C</code>, no more dependencies, generate config for <code>C</code></li>
+<li>Send a Bloop compile request from <code>C</code>.
+<ul>
+<li>Bloop will start compiling the build graph <em>in the background</em>.</li>
+<li>After building a target, Bloop sends a notification to client.</li>
+</ul></li>
+<li>Visit <code>B</code>, find dependency <code>A</code> is not compiled.</li>
+<li>Visit <code>A</code>, wait for Bloop's end notification for <code>A</code>.</li>
+<li>Come back to <code>B</code>, wait for Bloop's end notification for <code>B</code>.</li>
+<li>Come back to <code>C</code>, wait for Bloop's end notification for <code>C</code>.</li>
+</ol>
+<p>Right after receiving the notifications from the server, the build tool will find all the compilation products written in the classes directory specified in the configuration file. Meaning the build tool can immediately start evaluating tasks that depend on compilation products for that project.</p>
+<p>(Sbt will offload compilation to Bloop by following this strategy in the next Bloop release.)</p>
+<h4 id="pros-1">Pros</h4>
+<ol type="1">
+<li>Out-of-the-box integration with Metals and CLI (motivation #1)</li>
+<li>A faster local developer workflow (motivation #2)</li>
+<li>A state-of-the-art compilation engine that compiles the build graph as fast as possible for the build tool, with a simple protocol that decouples the build tools from compiler internals</li>
+</ol>
+<h4 id="cons-1">Cons</h4>
+<ol type="1">
+<li>Not as straight-forward to implement as the first shallow integration, but still doable and abstracted away from compiler internals.</li>
+<li>Requires writing all configurations to a <code>.bloop/</code> in the workspace.</li>
+</ol>
+<h3 id="manual-binary-dependency">Manual binary dependency</h3>
+<p>It is <em>possible</em> (but <strong>discouraged</strong>) to use Bloop's compilation engine via a library dependency and interface directly with Bloop internal compiler APIs. However, most of the nice performance advantages of using Bloop will be lost as those are implemented in how the schedluling of build targets is implemented.</p>
+<h4 id="pros-2">Pros</h4>
+<ol type="1">
+<li>Can yield some compile speedups if the internals are used correctly</li>
+</ol>
+<h4 id="cons-2">Cons</h4>
+<ol type="1">
+<li>No out-of-the-box integration with Metals and other clients (motivation #1)</li>
+<li>Same local developer workflow as now (motivation #2)</li>
+<li>Difficult to implement and maintain (similar situation as the status quo)
+<ul>
+<li>Bloop compiler APIs change frequently</li>
+<li>Bloop compiler APIs do not promise binary compatibility</li>
+</ul></li>
+</ol>
+<h2 id="ci-compatibility">CI compatibility</h2>
+<p>The CI doesn't pose any integration problems for Bloop. When Bazel runs compilation in the build farm, the <a href="https://scalacenter.github.io/bloop/docs/launcher-reference">Bloop Launcher</a> will open a connection with a Bloop server and start compiling, in a similar way to how the current rules Scala in Bazel or Pants work.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>This document motivates an integration with Bloop, explains why build tools such as Pants and Bazel would like to integrate with it and what are the consequences to their users.</p>
+<p>This document intentionally goes into not only ideas but also implementation details to show how a full end-to-end integration from Bazel or Pants to Bloop is possible and can be implemented. Despite a few minor improvements missing in the latest Bloop release, build tool engineers could implement an integration that works tomorrow while solving fundamental problems present today.</p>
+
+<!--*-markdown-*-->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="author" content="Jorge Vicente Cantero">
+
+<!-- Change this whenever a new blog post is done -->
+
+<meta property="og:title" content="Overload methods with extra parameter lists" />
+<meta property="og:description" content="A technique to shadow and overload a method with extra parameter lists." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jvican.github.io/" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="jvican"/>
+<meta name="twitter:description" content=""/>
+<meta name="twitter:site" content="@https://www.twitter.com/jvican"/>
+
+<link rel="stylesheet" href="../css/monosocialiconsfont.css">
+<link rel="shortcut icon" href="../images/favicon.ico">
+<link rel="stylesheet" type="text/css" media="all" href="../css/styles.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/syntax-highlighting.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/et-book.css">
+<link href="//cloud.typenetwork.com/projects/3124/fontface.css/" rel="stylesheet" type="text/css">
+<script async defer data-domain="jorge.vican.me" src="https://stats.vican.me/js/index.js"></script>
+
+<!--
+Required jquery snippet to replace top-level divs wrapping code generated by
+pandoc with spans. Otherwise, the reader mode in Safari doesn't work.
+ -->
+
+<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+
+<script>
+$(function() {
+    $("pre > code").each(function(i, block) {
+        var parentDiv = $(this).parent().parent();
+        if (parentDiv != null && parentDiv.hasClass("sourceCode")) {
+          parentDiv.replaceWith(function() {
+              return "<span>" + this.innerHTML + "</span>";
+          });
+        }
+    });
+});
+</script>
+
+<title>
+Overload methods with extra parameter lists
+</title>
+</head>
+<body>
+<div id="top-stripe"></div>
+<div> <!-- required as a simple wrapper for position:absolute to work -->
+<div class="home-arrow">
+<a href="../index.html">
+<span>←</span>
+Back
+</a>
+</div>
+</div>
+<div id="content">
+<article id="doc">
+
+<h1 id="overload-methods-with-parameter-lists">Overload methods with parameter lists</h1>
+<p>Have you ever wondered if you can enrich a method that you need to implement in a class to get more information from the call site?</p>
+<p>For example, let's say you have method <code>debug</code> in a logger interface <code>AbstractLogger</code>. Can we implement the logger interface and at the same time overload <code>debug</code> with another version that takes more parameters every time the users of our API call <code>debug</code>?</p>
+<p>In fact, can we do this without breaking binary compatibility in the interface that defines <code>debug</code> and ensuring that the users of our API can only call the enriched method?</p>
+<p>I asked myself this question three days ago and I came up with a solution that I think it's worth a short explanation in this blog post. My use case was triggered by <a href="https://github.com/scalacenter/bloop/issues/333">a feature I wanted to add</a> to <a href="https://github.com/scalacenter/bloop">bloop</a> (a fast compilation server for Scala).</p>
+<h2 id="what-is-the-problem">What is the Problem?</h2>
+<p>It's always amazed me how verbose the debug log level can be under tools such as sbt. This verbosity typically stands in the way of finding the cause for a resolution or compilation misbehavior. Running <code>debug</code> on the sbt shell would dump more than 20.000 logs in my screen, enough to overflow my terminal buffer and lose potentially important debug logs on the way.</p>
+<p>I've found myself often in this scenario. It feels like you're trying to find a needle in a haystack. It can be better if you're lucky enough to know the shape of the debug messages you're after (you can grep), but this is rarely the case.</p>
+<p>I wanted bloop users to have a better time debugging a compilation or testing issues by narrowing down the scope of the debug logs with filters. <code>bloop test my-app --debug test</code> would only dump debug logs related to the test task, instead of all the other debug messages in unrelated tasks.</p>
+<p>The logging infrastructure in <a href="https://github.com/scalacenter/bloop">bloop</a> implements several third-party <code>Logger</code> interfaces and aggregates them in an abstract class <code>BloopLogger</code> (for simplicity we'll extend only one: <code>AbstractLogger</code>).</p>
+<aside>
+(Scastie link to runnable code [here](https://scastie.scala-lang.org/gqI3gCsVTJuGWCeoZrpuHg).)
+
+</aside>
+
+<div class="sourceCode" id="cb1"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// A third-party logger interface (in our classpath)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract</span> <span class="kw">class</span> AbstractLogger {</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">debug</span>(msg: String): Unit</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">info</span>(msg: String): Unit</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">error</span>(msg: String): Unit</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// The logger interface that we use in all the bloop APIs</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract</span> <span class="kw">class</span> BloopLogger <span class="kw">extends</span> AbstractLogger</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">// One simple implementation of a bloop logger</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SimpleLogger <span class="kw">extends</span> BloopLogger {</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Debug: $msg&quot;</span>)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">info</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Info: $msg&quot;</span>)</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">error</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Error: $msg&quot;</span>)</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>We'd like to add an enriched version of <code>debug</code> that looks like <code>debug(msg: String)(implicit ctx: DebugContext)</code>, where <code>DebugContext</code> identifies the context where <code>debug</code> is called. (We decide to make the parameter implicit, but there's no reason why you shouldn't be able to make it explicit.)</p>
+<p>Third-party logging APIs are frozen and cannot be modified, so we cannot change the original <code>debug</code> method signature in <code>AbstractLogger</code>.</p>
+<p>Besides, we don't want to add an special method <code>debugWithFilter</code> that we would need to teach to all Bloop project contributors. We would spend a lot of time telling contributors that they must not use the normal <code>debug</code>, but <code>debugWithFilter</code> because bla.</p>
+<p>What we really want is to <strong>shadow the original <code>debug</code> method</strong> with the "enriched" <code>debug</code> method so that only the latter can be used by default.</p>
+<p>So, wrapping up, we don't only want to overload a method, but also shadow it, and we want to do that without changing the public API of the interfaces we implement. It looks hard but let's persevere.</p>
+<p>How do we go about implementing this feature?</p>
+<h2 id="a-first-approach">A First Approach</h2>
+<p>We know beforehand the compiler will tell us there's some kind of ambiguity between the two <code>debug</code> methods, but bear with me and let's write the simplest possible solution: let's add the new <code>debug</code> method in <code>SimpleLogger</code> and then use it in a small <code>main</code> method.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// The debug context that we want to pass implicitly</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">sealed</span> <span class="kw">trait</span> DebugContext</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">object</span> DebugContext {</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">case</span> <span class="kw">object</span> Ctx1 <span class="kw">extends</span> DebugContext</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">case</span> <span class="kw">object</span> Ctx2 <span class="kw">extends</span> DebugContext</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// The logger interface that we use in all the bloop APIs</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract</span> <span class="kw">class</span> BloopLogger <span class="kw">extends</span> AbstractLogger {</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">debug</span>(msg: String)(<span class="kw">implicit</span> ctx: DebugContext): Unit</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// One simple implementation of a bloop logger</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">final</span> <span class="kw">class</span> SimpleLogger <span class="kw">extends</span> BloopLogger {</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Debug: $msg&quot;</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">info</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Info: $msg&quot;</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">error</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Error: $msg&quot;</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String)(<span class="kw">implicit</span> ctx: DebugContext): Unit =</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(s<span class="st">&quot;Debug: $msg&quot;</span>)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="co">// The application that is the use site of our logger API</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="kw">object</span> MyApp {</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">main</span>(args: Array[String]): Unit = {</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">val</span> logger = <span class="kw">new</span> SimpleLogger</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    logger.<span class="fu">debug</span>(<span class="st">&quot;This is a debug message&quot;</span>)</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>When we compile the above code, the compiler emits the following error:</p>
+<pre><code>ambiguous reference to overloaded definition,
+  both method debug in class SimpleLogger of type (msg: String)(implicit ctx: DebugContext)Unit
+  and  method debug in class SimpleLogger of type (msg: String)Unit
+  match argument types (String)</code></pre>
+<p>(Scastie link to runnable code <a href="https://scastie.scala-lang.org/R4bck5yoR4SJ0kjnIppJHw">here</a>.)</p>
+<p>Can we work around this ambiguous reference? Let's consider all our possibilities.</p>
+<p>If we try to change the call-site to select the most specific debug method (<code>logger.debug("This is a debug message")(DebugContext.Ctx1)</code>), the error persists.</p>
+<p>If we try to move the new debug definition to the implementation class, then it won't be usable by APIs using <code>BloopLogger</code>, which the rest of our codebase does because we have several implementations.</p>
+<p>It looks like everything is lost. But this is the moment when knowing or intuiting that the ambiguity checker inside the compiler relies on the linearization order saves your day.</p>
+<h2 id="a-solution-that-relies-on-class-linearization">A Solution that Relies on Class Linearization</h2>
+<p>First off, what's the linearization order? There are a few good resources in Internet, such as <a href="http://ktoso.github.io/scala-types-of-types/#type-linearization-vs-the-diamond-problem">this one</a>, that explain it well. But let me oversimplify and say that you can think of the linearization order as the order with which Scala will initialize an instance of a given class and all its super classes (or traits).</p>
+<p>When Scala looks up the definition of a member, it relies on the linearization order to pick the first unambiguous candidate. A quick example:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">trait</span> A</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">trait</span> B <span class="kw">extends</span> A { <span class="kw">def</span> foo: String }</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">trait</span> C</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> D <span class="kw">extends</span> C <span class="kw">with</span> B</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">// The linearization order to find `foo` is `D -&gt; C -&gt; B`</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>(<span class="kw">new</span> D).<span class="fu">foo</span></span></code></pre></div>
+<p>The same procedure happens when Scala checks for ambiguous references and emits errors such as the ones we got before. As this example illustrates, the compiler will not exhaustively look for definitions of <code>foo</code> in all transitive super classes, it stops at the first search hit.</p>
+<p>This insight means that we can modify our previous example such that our enriched <code>debug</code> method is always found first. This way, we dodge the ambiguous reference to overloaded <code>debug</code>s.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// We make `DebugLogger` private at the logging package level to avoid undesired users</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span>[logging] <span class="kw">abstract</span> <span class="kw">class</span> DebugLogger <span class="kw">extends</span> AbstractLogger {</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="kw">protected</span> <span class="kw">def</span> <span class="fu">printDebug</span>(msg: String): Unit</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String): Unit = <span class="fu">printDebug</span>(msg)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">// The logger interface that we use in all the bloop APIs</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="kw">abstract</span> <span class="kw">class</span> BloopLogger <span class="kw">extends</span> DebugLogger {</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">debug</span>(msg: String)(<span class="kw">implicit</span> ctx: DebugContext): Unit</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co">// One simple implementation of a bloop logger</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="kw">final</span> <span class="kw">class</span> SimpleLogger <span class="kw">extends</span> BloopLogger {</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">info</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Info: $msg&quot;</span>)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">error</span>(msg: String): Unit = <span class="fu">println</span>(s<span class="st">&quot;Error: $msg&quot;</span>)</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">protected</span> <span class="kw">def</span> <span class="fu">printDebug</span>(msg: String): Unit =</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(s<span class="st">&quot;Debug: $msg&quot;</span>)</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">override</span> <span class="kw">def</span> <span class="fu">debug</span>(msg: String)(<span class="kw">implicit</span> ctx: DebugContext): Unit =</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="fu">printDebug</span>(s<span class="st">&quot;$msg ($ctx)&quot;</span>)</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<p>The trick to make the previous code work is defining the implementation of the simple <code>debug</code> method in <code>DebugLogger</code> and making <code>BloopLogger</code> extend <code>DebugLogger</code>. We have introduced a <code>printDebug</code> to avoid inter-dependencies between the two <code>debug</code> methods, as they will cause other reference errors.</p>
+<p>Once we have defined the method we want to shadow in a super class of the class we want to support in our API (in this case <code>BloopLogger</code>), the logger implementations only need to define the enriched <code>debug</code> method.</p>
+<p>Users of this API <strong>will not</strong> be able to call the simple <code>debug</code> <strong>unless</strong> they do an upcast to the third-party logger <code>AbstractLogger</code>. This is intended -- the goal is to have a good default, not to make it completely impossible to call the simple debug, so make sure that it still has a sensible implementation.</p>
+<p>In Bloop's case, the third-party logger API is never exposed and I recommend doing so in your application or library if you can.</p>
+<p>With the above code, compiling our simple <code>MyApp</code> fails compilation with a <code>could not find implicit value for parameter ctx: DebugContext</code>, which confirms us that Scala is successfully selecting the right method.</p>
+<p>We can fix it by passing the context either implicitly or explicitly.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">object</span> MyApp {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="kw">def</span> <span class="fu">main</span>(args: Array[String]): Unit = {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">println</span>(</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot;Running demo application for https://jorge.vican.me/post/overload-methods-with-more-parameter-lists/&quot;</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">implicit</span> <span class="kw">val</span> ctx: DebugContext = DebugContext.<span class="fu">Ctx1</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">val</span> logger = <span class="kw">new</span> SimpleLogger</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    logger.<span class="fu">debug</span>(<span class="st">&quot;This is a debug message&quot;</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div>
+<h3 id="complete-scastie-example">Complete Scastie Example</h3>
+<h2 id="conclusion">Conclusion</h2>
+<aside>
+Play around with all the code of this blog post [in this Scastie code snippet](https://scastie.scala-lang.org/D4cAr7CLT3u29CVDI5ddoA).
+
+</aside>
+
+<p>Overloading a method inherited from a third-party class is possible in Scala. It requires a little bit of gymnastics, but once we're familiar with the technique we can apply it in many other scenarios.</p>
+<p>The same technique works with new explicit parameters (instead of implicit parameters). They key point is that we can overload methods by adding extra parameter lists to their definition, playing with the linearization order and defining the methods in the right place.</p>
+
+<!--*-markdown-*-->
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="author" content="Jorge Vicente Cantero">
+
+<!-- Change this whenever a new blog post is done -->
+
+<meta property="og:title" content="Profiling and reducing compilation times" />
+<meta property="og:description" content= "A tour on profiling compile times with `scalac-profiling` to understand and reduce the cost of automatic typeclass derivation." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://jvican.github.io/" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="jvican"/>
+<meta name="twitter:description" content=""/>
+<meta name="twitter:site" content="@https://www.twitter.com/jvican"/>
+
+<link rel="stylesheet" href="../css/monosocialiconsfont.css">
+<link rel="shortcut icon" href="../images/favicon.ico">
+<link rel="stylesheet" type="text/css" media="all" href="../css/styles.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/syntax-highlighting.css">
+<link rel="stylesheet" type="text/css" media="all" href="../css/et-book.css">
+<link href="//cloud.typenetwork.com/projects/3124/fontface.css/" rel="stylesheet" type="text/css">
+<script async defer data-domain="jorge.vican.me" src="https://stats.vican.me/js/index.js"></script>
+
+<title>
+Profiling and reducing compile times of typeclass derivation
+</title>
+</head>
+<body>
+<div id="top-stripe"></div>
+<div> <!-- required as a simple wrapper for position:absolute to work -->
+<div class="home-arrow">
+<a href="../index.html">
+<span>←</span>
+Back
+</a>
+</div>
+</div>
+<div id="content">
+<div id="doc">
+
+<h1 id="profiling-and-reducing-compilation-times-of-typeclass-derivation">Profiling and reducing compilation times of typeclass derivation</h1>
+<p>I have recently published a blog post in the official Scala website about my recent work on <a href="https://github.com/scalacenter/scalac-profiling"><code>scalac-profiling</code></a>.</p>
+<p><code>scalac-profiling</code> is a new compiler plugin to complement my recent work on the compiler statistics/sampling infrastructure merged in Scala 2.12.5 and available from then on.</p>
+<p>In the blog post I talk about compilation performance, typeclass derivation, the expensive price of derivation via implicits and how to <code>scalac-profiling</code> to speed up the compile times of a Bloop module by <strong>8x</strong>.</p>
+<div class="omission"></div>
+
+<p>Read more in <a href="https://www.scala-lang.org/blog/2018/06/04/scalac-profiling.html"><code>scala-lang</code></a>.</p>

@@ -905,7 +905,7 @@ ol, ul, pre {
 }
 
 pre {
-  font-family: "Input Mono Nar Reg", "Input Mono", Consolas, Courier, monospace !important;
+  font-family: "Input Mono Condensed", "Input Mono", Consolas, Courier, monospace !important;
   margin-right: -1rem;
   background: #fbfbfb;
   padding: 0.5rem;
@@ -918,7 +918,7 @@ pre {
 
 pre .sourceCode {
   overflow-x: auto !important;
-  font-size: 0.65rem !important;
+  font-size: 0.70rem !important;
   line-height: 1em !important;
 }
 
@@ -1142,7 +1142,7 @@ aside p {
   
 @media all and (min-width:1200px) {
     aside {
-        left : 35rem;
+        left : 55rem;
         width: calc(2.5rem * 4);
     }
 }

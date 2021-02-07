@@ -74,8 +74,8 @@ Back
 <p>I wanted bloop users to have a better time debugging a compilation or testing issues by narrowing down the scope of the debug logs with filters. <code>bloop test my-app --debug test</code> would only dump debug logs related to the test task, instead of all the other debug messages in unrelated tasks.</p>
 <p>The logging infrastructure in <a href="https://github.com/scalacenter/bloop">bloop</a> implements several third-party <code>Logger</code> interfaces and aggregates them in an abstract class <code>BloopLogger</code> (for simplicity we'll extend only one: <code>AbstractLogger</code>).</p>
 <aside>
-(Scastie link to runnable code [here](https://scastie.scala-lang.org/gqI3gCsVTJuGWCeoZrpuHg).)
-
+(Scastie link <a
+href="https://scastie.scala-lang.org/gqI3gCsVTJuGWCeoZrpuHg">here</a>)
 </aside>
 
 <div class="sourceCode" id="cb1"><pre class="sourceCode scala"><code class="sourceCode scala"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// A third-party logger interface (in our classpath)</span></span>
@@ -191,8 +191,8 @@ Back
 <h3 id="complete-scastie-example">Complete Scastie Example</h3>
 <h2 id="conclusion">Conclusion</h2>
 <aside>
-Play around with all the code of this blog post [in this Scastie code snippet](https://scastie.scala-lang.org/D4cAr7CLT3u29CVDI5ddoA).
-
+Play around with all the code of this blog post <a href="https://scastie.scala-lang.org/D4cAr7CLT3u29CVDI5ddoA">in this Scastie
+code</a>.
 </aside>
 
 <p>Overloading a method inherited from a third-party class is possible in Scala. It requires a little bit of gymnastics, but once we're familiar with the technique we can apply it in many other scenarios.</p>
